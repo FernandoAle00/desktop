@@ -67,6 +67,10 @@
       overflow: hidden;
       overflow-y: auto;
       flex: 1;
+
+      // The body can be dragged taller. The block grows inside #history and
+      // the diff underneath gives up the space, down to its own 150px floor.
+      resize: vertical;
     }
 
     .ecs-description-text {
@@ -165,8 +169,10 @@
 
   &:not(.expanded) {
     .ecs-description-scroll-view {
-      max-height: 80px;
+      // A height rather than a max-height, so dragging past it sticks
+      height: 80px;
       min-height: 30px;
+      max-height: 60vh;
     }
   }
 
