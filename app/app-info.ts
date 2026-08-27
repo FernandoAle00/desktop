@@ -28,7 +28,14 @@ export function getReplacements() {
     __DEV__: isDevBuild,
     __DEV_SECRETS__: isDevBuild || !process.env.DESKTOP_OAUTH_CLIENT_SECRET,
     __RELEASE_CHANNEL__: s(channel),
-    __UPDATES_URL__: s(process.env.DESKTOP_E2E_UPDATES_URL ?? getUpdatesURL()),
+    // A fork has no release feed of its own, and upstream's would offer to
+    // install GitHub Desktop over this build. DESKTOP_DISABLE_UPDATES=1 blanks
+    // the URL, which turns the update check into a no-op.
+    __UPDATES_URL__: s(
+      process.env.DESKTOP_DISABLE_UPDATES === '1'
+        ? ''
+        : process.env.DESKTOP_E2E_UPDATES_URL ?? getUpdatesURL()
+    ),
     __ERROR_REPORTING_ENDPOINT__: optionalStringReplacement(
       process.env.DESKTOP_ERROR_REPORTING_ENDPOINT
     ),

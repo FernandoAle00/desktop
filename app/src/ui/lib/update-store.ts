@@ -226,6 +226,12 @@ class UpdateStore {
   private async getUpdatesUrl(skipGuidCheck: boolean) {
     let url = null
 
+    // Blank means this build has no release feed (see __UPDATES_URL__ in
+    // app/app-info.ts); returning null skips the check entirely.
+    if (__UPDATES_URL__.length === 0) {
+      return null
+    }
+
     try {
       url = new URL(__UPDATES_URL__)
     } catch (e) {
@@ -271,8 +277,14 @@ class UpdateStore {
   }
 
   private async updatePriorityUpdateStatus() {
+    const url = await this.getUpdatesUrl(false)
+
+    if (url === null) {
+      return
+    }
+
     try {
-      const response = await fetch(await this.getUpdatesUrl(false), {
+      const response = await fetch(url, {
         method: 'HEAD',
         headers: { 'user-agent': getUserAgent() },
       })
