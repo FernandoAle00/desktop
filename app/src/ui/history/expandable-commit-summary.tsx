@@ -20,6 +20,13 @@ import { Avatar } from '../lib/avatar'
 import { CopyButton } from '../copy-button'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
+import { clamp } from '../../lib/clamp'
+
+/** How short the commit body can be dragged before it stops shrinking */
+const MinDescriptionHeight = 30
+
+/** The share of the window the commit body is allowed to take */
+const MaxDescriptionHeightRatio = 0.6
 
 interface IExpandableCommitSummaryProps {
   readonly repository: Repository
@@ -80,7 +87,16 @@ interface IExpandableCommitSummaryState {
    * the avatar stack and calculated whenever the commit prop changes.
    */
   readonly avatarUsers: ReadonlyArray<IAvatarUser>
+
+  /**
+   * The height the user dragged the commit body to, or null while it's at the
+   * height the stylesheet gives it. Deliberately not part of createState, so
+   * that a height survives moving between commits.
+   */
+  readonly descriptionHeight: number | null
 }
+
+type MessageState = Omit<IExpandableCommitSummaryState, 'descriptionHeight'>
 
 /**
  * Creates the state object for the ExpandableCommitSummary component.
@@ -98,7 +114,7 @@ interface IExpandableCommitSummaryState {
 function createState(
   isOverflowed: boolean,
   props: IExpandableCommitSummaryProps
-): IExpandableCommitSummaryState {
+): MessageState {
   const { emoji, repository, selectedCommits } = props
   const tokenizer = new Tokenizer(emoji, repository)
 
@@ -164,7 +180,7 @@ export class ExpandableCommitSummary extends React.Component<
   public constructor(props: IExpandableCommitSummaryProps) {
     super(props)
 
-    this.state = createState(false, props)
+    this.state = { ...createState(false, props), descriptionHeight: null }
 
     const ResizeObserverClass: typeof ResizeObserver = (window as any)
       .ResizeObserver
@@ -193,6 +209,67 @@ export class ExpandableCommitSummary extends React.Component<
     }
 
     this.updateOverflow()
+  }
+
+  private descriptionDragStartY: number | null = null
+  private descriptionDragStartHeight: number | null = null
+
+  /**
+   * Native `resize` only gives you a grip in one corner, so the commit body
+   * gets a handle running the full width of its bottom edge instead.
+   */
+  private onDescriptionResizeStart = (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    if (this.descriptionScrollViewRef === null) {
+      return
+    }
+
+    this.descriptionDragStartY = e.clientY
+    this.descriptionDragStartHeight = this.descriptionScrollViewRef.clientHeight
+
+    document.addEventListener('mousemove', this.onDescriptionResizeMove)
+    document.addEventListener('mouseup', this.onDescriptionResizeEnd)
+
+    e.preventDefault()
+  }
+
+  private onDescriptionResizeMove = (e: MouseEvent) => {
+    const {
+      descriptionDragStartY: startY,
+      descriptionDragStartHeight: startHeight,
+    } = this
+
+    if (startY === null || startHeight === null) {
+      return
+    }
+
+    this.setState({
+      descriptionHeight: clamp(
+        startHeight + (e.clientY - startY),
+        MinDescriptionHeight,
+        window.innerHeight * MaxDescriptionHeightRatio
+      ),
+    })
+
+    e.preventDefault()
+  }
+
+  private onDescriptionResizeEnd = (e: MouseEvent) => {
+    this.stopListeningForDescriptionResize()
+    e.preventDefault()
+  }
+
+  /** Double clicking the handle puts the body back to its default height */
+  private onDescriptionResizeReset = () => {
+    this.setState({ descriptionHeight: null })
+  }
+
+  private stopListeningForDescriptionResize() {
+    this.descriptionDragStartY = null
+    this.descriptionDragStartHeight = null
+    document.removeEventListener('mousemove', this.onDescriptionResizeMove)
+    document.removeEventListener('mouseup', this.onDescriptionResizeEnd)
   }
 
   private onDescriptionScrollViewRef = (ref: HTMLDivElement | null) => {
@@ -264,6 +341,10 @@ export class ExpandableCommitSummary extends React.Component<
     }
   }
 
+  public componentWillUnmount() {
+    this.stopListeningForDescriptionResize()
+  }
+
   public componentWillUpdate(nextProps: IExpandableCommitSummaryProps) {
     if (
       nextProps.selectedCommits.length !== this.props.selectedCommits.length ||
@@ -303,20 +384,43 @@ export class ExpandableCommitSummary extends React.Component<
       overflowed: this.state.isOverflowed,
     })
 
+    // In expanded mode the body takes over the pane, so the dragged height
+    // doesn't apply and there's nothing to drag.
+    const { isExpanded } = this.props
+    const { descriptionHeight } = this.state
+    const style =
+      !isExpanded && descriptionHeight !== null
+        ? { height: descriptionHeight }
+        : undefined
+
     return (
-      <div className={className}>
-        <div
-          className="ecs-description-scroll-view"
-          ref={this.onDescriptionScrollViewRef}
-        >
-          <RichText
-            className="ecs-description-text selectable"
-            emoji={this.props.emoji}
-            repository={this.props.repository}
-            text={this.state.body}
-          />
+      <>
+        <div className={className}>
+          <div
+            className="ecs-description-scroll-view"
+            ref={this.onDescriptionScrollViewRef}
+            style={style}
+          >
+            <RichText
+              className="ecs-description-text selectable"
+              emoji={this.props.emoji}
+              repository={this.props.repository}
+              text={this.state.body}
+            />
+          </div>
         </div>
-      </div>
+        {!isExpanded && (
+          <button
+            // Prevent form submission with this button
+            type="button"
+            tabIndex={-1}
+            className="ecs-resize-handle"
+            onMouseDown={this.onDescriptionResizeStart}
+            onDoubleClick={this.onDescriptionResizeReset}
+            aria-label="Resize commit body"
+          />
+        )}
+      </>
     )
   }
 

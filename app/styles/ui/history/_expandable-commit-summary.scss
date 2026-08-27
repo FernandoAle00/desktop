@@ -61,16 +61,11 @@
     display: flex;
     position: relative;
     min-height: 10px;
-    padding-bottom: var(--spacing-half);
 
     .ecs-description-scroll-view {
       overflow: hidden;
       overflow-y: auto;
       flex: 1;
-
-      // The body can be dragged taller. The block grows inside #history and
-      // the diff underneath gives up the space, down to its own 150px floor.
-      resize: vertical;
     }
 
     .ecs-description-text {
@@ -169,10 +164,40 @@
 
   &:not(.expanded) {
     .ecs-description-scroll-view {
-      // A height rather than a max-height, so dragging past it sticks
+      // A height rather than a max-height, so the dragged height sticks.
+      // The bounds live in expandable-commit-summary.tsx, which clamps the
+      // drag; repeating them here would only fight the inline style.
       height: 80px;
-      min-height: 30px;
-      max-height: 60vh;
+    }
+  }
+
+  // Runs the full width of the bottom edge of the commit body, so the body can
+  // be grabbed anywhere along it rather than at one corner. The line is quiet
+  // until the pointer is on it.
+  .ecs-resize-handle {
+    flex: 0 0 auto;
+    height: 7px;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: ns-resize;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: var(--spacing);
+      right: var(--spacing);
+      top: 3px;
+      height: 1px;
+      background: var(--box-border-color);
+    }
+
+    &:hover::after,
+    &:active::after {
+      background: var(--box-border-contrast-color);
     }
   }
 
