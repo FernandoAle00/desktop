@@ -54,6 +54,11 @@ body {
   font-size: var(--font-size);
   line-height: 1.5;
 
+  // The UI runs at 12px, where subpixel antialiasing renders the system font
+  // heavier than it was drawn. Grayscale keeps the stems even, and matters
+  // most on the dark theme where the fringing is visible.
+  -webkit-font-smoothing: antialiased;
+
   color: var(--text-color);
   background-color: var(--background-color);
   accent-color: var(--accent-color);
@@ -97,6 +102,9 @@ h5,
 h6 {
   margin-top: 0;
   margin-bottom: 0.5rem;
+  // At display sizes the default system-ui tracking reads loose
+  letter-spacing: var(--letter-spacing-tight);
+  text-wrap: balance;
 }
 
 code,
@@ -147,9 +155,22 @@ button {
   outline: none;
 }
 
+// `outline: auto` hands the ring back to the platform, so its width and color
+// drift between controls. One explicit ring keeps every focusable element in
+// the app looking like it belongs to the same product.
 :focus-visible {
-  outline: auto;
-  outline-color: var(--focus-color);
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .more-dropdown {

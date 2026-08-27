@@ -36,6 +36,8 @@
     margin: 0;
     padding: 0;
 
+    transition: background-color var(--duration-fast) var(--easing-ease-out-quint);
+
     &:active {
       box-shadow: none;
     }

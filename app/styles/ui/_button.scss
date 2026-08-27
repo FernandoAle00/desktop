@@ -18,6 +18,8 @@
 
   border-radius: var(--button-border-radius);
 
+  transition: background-color var(--duration-fast) var(--easing-ease-out-quint), border-color var(--duration-fast) var(--easing-ease-out-quint);
+
   &:not([aria-disabled='true']):hover {
     border-color: var(--secondary-button-hover-border-color);
     background-color: var(--secondary-button-hover-background);

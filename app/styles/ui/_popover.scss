@@ -4,14 +4,16 @@
 
   background: var(--background-color);
   color: var(--text-color);
-  border-radius: var(--border-radius);
-  border: var(--base-border);
+  // --base-box-shadow carries its own hairline, so the popover doesn't also
+  // need a border.
+  border-radius: var(--border-radius-lg);
+  border: none;
 
   box-shadow: var(--base-box-shadow);
 
   .popover-content {
     padding: var(--spacing-double);
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-lg);
     max-height: var(--available-height);
     max-width: var(--available-width);
   }

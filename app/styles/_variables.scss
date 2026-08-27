@@ -18,9 +18,9 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --color-renamed: #{$blue};
   --color-conflicted: #{$orange-800};
 
-  --text-color: #{$gray-900};
-  --text-secondary-color: #{$gray-500};
-  --text-secondary-color-muted: #{lighten($gray-500, 30%)};
+  --text-color: #1f2328;
+  --text-secondary-color: #656d76;
+  --text-secondary-color-muted: #8c959f;
   --background-color: #{$white};
 
   --button-height: 25px;
@@ -127,7 +127,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   /**
    * Border color for boxes.
    */
-  --box-border-color: #{$gray-200};
+  --box-border-color: #d1d9e0;
 
   // darkened version of gray-400 to get 3:1 contrast ratio against --box-alt-background-color
   --box-border-contrast-color: #{darken($gray-400, 5%)};
@@ -136,7 +136,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   /**
    * Background color for selected boxes without keyboard focus
    */
-  --box-selected-background-color: #ebeef1;
+  --box-selected-background-color: #eaeef2;
 
   /**
    * Text color for when a user hovers over a boxe with a
@@ -144,7 +144,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
    * implement a hover state since this will conflict with
    * selection and active selection
    */
-  --box-hover-text-color: #{$gray-900};
+  --box-hover-text-color: #1f2328;
 
   /**
    * Background color for when a user hovers over a boxe with a
@@ -157,7 +157,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   /**
    * Text color for selected boxes without keyboard focus
    */
-  --box-selected-text-color: #{$gray-900};
+  --box-selected-text-color: #1f2328;
 
   /**
    * Border color for selected boxes without keyboard focus
@@ -228,7 +228,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
    * If changed, update titleBarHeight in 'app/src/ui/dialog/dialog.tsx'
   */
   --win32-title-bar-height: 28px;
-  --win32-title-bar-background-color: #{$gray-900};
+  --win32-title-bar-background-color: #1f2328;
 
   /**
    * The height of the title bar area on darwin platforms
@@ -244,7 +244,14 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --spacing-half: calc(var(--spacing) / 2);
   --spacing-third: calc(var(--spacing) / 3);
 
+  /**
+   * Radius scale. `sm` is for small controls (badges, tags, inline chips),
+   * the base value for buttons and inputs, and `lg` for surfaces that float
+   * above the app (dialogs, popovers, foldouts).
+   */
+  --border-radius-sm: 4px;
   --border-radius: 6px;
+  --border-radius-lg: 10px;
   // When we use the regular border radius (6px) the outline
   // leaves a tiny gap in the corners so we drop down to a
   // similar value than Chrome's default outline border radius.
@@ -252,13 +259,25 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --base-border: 1px solid var(--box-border-color);
   --contrast-border: 1px solid var(--box-border-contrast-color);
 
-  --shadow-color: rgba(71, 83, 95, 0.19);
-  --base-box-shadow: 0 2px 7px var(--shadow-color);
+  /**
+   * Elevation. Every floating surface uses one of these two and nothing else,
+   * so depth stays consistent. Each is a close contact shadow plus a wider,
+   * softer cast; the ambient layer also draws the hairline that separates the
+   * surface from what's underneath, which is why elevated surfaces don't carry
+   * a border of their own.
+   */
+  --shadow-color: rgba(31, 35, 40, 0.12);
+  --shadow-color-ambient: rgba(31, 35, 40, 0.08);
+  --base-box-shadow: 0 0 0 1px var(--shadow-color-ambient), 0 1px 2px var(--shadow-color-ambient), 0 6px 16px var(--shadow-color);
+  --shadow-lg: 0 0 0 1px var(--shadow-color-ambient), 0 2px 4px var(--shadow-color-ambient), 0 16px 40px var(--shadow-color);
+
+  /** Tracking for display-sized text, which needs it tighter than body copy */
+  --letter-spacing-tight: -0.02em;
 
   --toolbar-height: 50px;
 
-  --toolbar-background-color: #{$gray-900};
-  --toolbar-border-color: #{$gray-900};
+  --toolbar-background-color: #1f2328;
+  --toolbar-border-color: #1f2328;
   --toolbar-text-color: #{$white};
   --toolbar-text-secondary-color: #{$gray-300};
 
@@ -504,14 +523,15 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --path-segment-background-focus: #{darken($blue-000, 5%)};
   --path-segment-padding: var(--spacing-third);
 
-  // http://easings.net/#easeOutBack
-  --easing-ease-out-back: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-  // http://easings.net/#easeInBack
-  --easing-ease-in-back: cubic-bezier(0.6, -0.28, 0.735, 0.045);
-
   // http://easings.net/#easeOutQuint
   --easing-ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /**
+   * Durations for state changes (hover, focus, selection). Paired with
+   * --easing-ease-out-quint so a change lands immediately and settles.
+   */
+  --duration-fast: 100ms;
+  --duration: 160ms;
 
   /** rebase progress bar */
   --dialog-progress-background: #{$green};
