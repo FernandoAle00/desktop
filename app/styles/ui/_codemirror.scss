@@ -30,12 +30,27 @@
   background: inherit;
 }
 
+// CodeMirror draws its own bars rather than using the container's overflow, so
+// the rules in _scroll.scss don't reach them. Match them by hand: transparent
+// track, and a thumb clipped inside a transparent border the same way.
 .CodeMirror-simplescroll-horizontal,
 .CodeMirror-simplescroll-vertical {
-  background: var(--box-alt-background-color);
+  background: transparent;
+
   div {
-    background: var(--scroll-bar-thumb-background-color);
-    border: none;
+    background-color: var(--scroll-bar-thumb-background-color);
+    background-clip: padding-box;
+    border: var(--scroll-bar-thumb-inset) solid transparent;
+    border-radius: var(--scroll-bar-size);
+  }
+
+  &:hover div {
+    background-color: var(--scroll-bar-thumb-background-color-hover);
+  }
+
+  &:active div {
+    background-color: var(--scroll-bar-thumb-background-color-active);
+    border-width: 2px;
   }
 }
 

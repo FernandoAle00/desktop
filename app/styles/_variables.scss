@@ -93,20 +93,12 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --font-size-xs: 9px;
 
   /**
-   * Background color for custom scroll bars.
-   * The color is applied to the thumb part of the scrollbar.
-   *
-   * Note: Only applies to win32 and linux platforms
+   * The scroll bar thumb, in its three states. The track is always
+   * transparent, so these are the only scroll bar colors. See _scroll.scss.
    */
   --scroll-bar-thumb-background-color: rgba(0, 0, 0, 0.2);
-
-  /**
-   * Background color for custom scroll bars in their active state.
-   * The color is applied to the thumb part of the scrollbar.
-   *
-   * Note: Only applies to win32 and linux platforms
-   */
-  --scroll-bar-thumb-background-color-active: rgba(0, 0, 0, 0.5);
+  --scroll-bar-thumb-background-color-hover: rgba(0, 0, 0, 0.32);
+  --scroll-bar-thumb-background-color-active: rgba(0, 0, 0, 0.45);
 
   // Box
   //
@@ -353,9 +345,12 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --list-item-selected-active-badge-background-color: #{$white};
   --list-item-hover-background-color: #{$gray-100};
 
-  /** Windows/Linux have custom scrollbars, see _scroll.scss */
-  --win32-scroll-bar-size: 10px;
-  --linux-scroll-bar-size: 10px;
+  /**
+   * Width of the scroll bar's hit area. The thumb is drawn narrower than this
+   * by clipping it inside a transparent border, see _scroll.scss.
+   */
+  --scroll-bar-size: 11px;
+  --scroll-bar-thumb-inset: 3px;
 
   /**
    * The z-index for tooltips. Nothing should be higher, but other z-indexes can

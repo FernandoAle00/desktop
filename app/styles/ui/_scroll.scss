@@ -1,98 +1,73 @@
 @import '../mixins';
 
-@include win32-context {
-  // Windows native scrollbars are just too outdated to look at so we'll
-  // have to make some ourselves. Unfortunately for us webkit isn't as
-  // flexible as one would hope when it comes to styling scroll bars.
-  //
-  // We're unable to perform any css transition on say width or height
-  // which we'd really like to in order to smoothly grow the scrollbar
-  // when the mouse is close. Nor can we transition on opacity in order
-  // to smoothly show or hide the scroll bar on hover.
-  //
-  // We're not able to use margins/paddings to offset the bar away from
-  // the edge of the container. There's a hack we can employ with
-  // background-clip that lets us use a border to offset though.
-  // See http://stackoverflow.com/a/21684424/2114
-  //
-  // The biggest limitation however is the fact that we're unable to
-  // have the scroll bar sit on top of the content itself. Adding a
-  // scroll bar automatically adds a padding equal to that of the scroll
-  // bar width/height to the container and there's no way (that I've found)
-  // to get around that. The scroll bar seems to sample its background
-  // from the container and never its content.
-  //
-  // We work around that in List elements by introducing a fake overflowing
-  // element which is absolutely positioned on top of the main content.
-  // See List.tsx and _list.scss.
-  ::-webkit-scrollbar {
-    width: var(--win32-scroll-bar-size);
-    height: var(--win32-scroll-bar-size);
-    background: transparent;
-    cursor: pointer;
+// One scroll bar for every platform.
+//
+// macOS used to fall through to the native bar, which on "always show scroll
+// bars" is a wide opaque slab with a filled track, and Windows and Linux each
+// carried their own near-identical copy of the rules below.
+//
+// Webkit is not flexible here. Width and height can't be transitioned, so the
+// bar can't grow smoothly on hover, and margins are ignored, so the thumb
+// can't be offset from the edge of its container. What does work is drawing
+// the thumb inside a transparent border and clipping the background to the
+// padding box: the hit area stays --scroll-bar-size wide while the thumb reads
+// as a thin line. See http://stackoverflow.com/a/21684424/2114
+//
+// The track is transparent everywhere, so a scroll bar over a list, a diff or
+// a dialog picks up whatever surface it sits on instead of cutting a channel
+// through it.
+::-webkit-scrollbar {
+  width: var(--scroll-bar-size);
+  height: var(--scroll-bar-size);
+  background: transparent;
+}
 
-    &-thumb {
-      background-color: var(--scroll-bar-thumb-background-color);
-      border-radius: var(--win32-scroll-bar-size);
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
-      // This little hack allows us to have a slim scroll bar
-      // with a bigger hit area. The scroll bar width/height
-      // is 10px but we're cutting off 6px using clipping so
-      // that it appears as if it's actually only 4px.
-      border-color: transparent;
-      border-style: solid;
-      border-width: 3px;
-      background-clip: padding-box;
+// The stepper arrows at the ends of the bar
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
 
-      // ...and when it's pressed we'll up the contrast
-      &:active {
-        background-color: var(--scroll-bar-thumb-background-color-active);
-      }
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-bar-thumb-background-color);
+  border-radius: var(--scroll-bar-size);
 
-      // When someone hovers over, or presses the bar we'll expand it to 8px
-      &:hover,
-      &:active {
-        border-width: 1px;
-        background-color: var(--scroll-bar-thumb-background-color-active);
-        cursor: pointer;
-      }
-    }
+  border: var(--scroll-bar-thumb-inset) solid transparent;
+  background-clip: padding-box;
+
+  // A thumb shorter than this is hard to grab in a long list
+  min-height: 32px;
+
+  &:hover {
+    background-color: var(--scroll-bar-thumb-background-color-hover);
+  }
+
+  // Pressed, the thumb thickens as well as darkens
+  &:active {
+    background-color: var(--scroll-bar-thumb-background-color-active);
+    border-width: 2px;
   }
 }
 
-@include linux-context {
-  // Linux scrollbars need styled, too
-  ::-webkit-scrollbar {
-    width: var(--linux-scroll-bar-size);
-    height: var(--linux-scroll-bar-size);
-    background: transparent;
-    cursor: pointer;
+::-webkit-scrollbar-thumb:horizontal {
+  min-height: 0;
+  min-width: 32px;
+}
 
-    &-thumb {
-      background-color: var(--scroll-bar-thumb-background-color);
-      border-radius: var(--linux-scroll-bar-size);
-
-      // This little hack allows us to have a slim scroll bar
-      // with a bigger hit area. The scroll bar width/height
-      // is 10px but we're cutting off 6px using clipping so
-      // that it appears as if it's actually only 4px.
-      border-color: transparent;
-      border-style: solid;
-      border-width: 3px;
-      background-clip: padding-box;
-
-      // ...and when it's pressed we'll up the contrast
-      &:active {
-        background-color: var(--scroll-bar-thumb-background-color-active);
-      }
-
-      // When someone hovers over, or presses the bar we'll expand it to 8px
-      &:hover,
-      &:active {
-        border-width: 1px;
-        background-color: var(--scroll-bar-thumb-background-color-active);
-        cursor: pointer;
-      }
+@include win32-context {
+  // See List.tsx and _list.scss: on Windows the lists draw their own bar in an
+  // absolutely positioned overlay, which only appears while the pointer is
+  // over the list.
+  .fake-scroll {
+    &::-webkit-scrollbar-thumb {
+      min-height: 24px;
     }
   }
 }
