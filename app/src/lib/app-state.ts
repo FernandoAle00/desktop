@@ -948,6 +948,12 @@ export interface ICompareState {
   /** The SHAs of commits to render in the compare list */
   readonly commitSHAs: ReadonlyArray<string>
 
+  /**
+   * The text entered into the history search box. When non-empty the history
+   * only shows commits whose message matches it.
+   */
+  readonly commitFilterText: string
+
   /** The SHAs of commits to highlight in the compare list */
   readonly shasToHighlight: ReadonlyArray<string>
 

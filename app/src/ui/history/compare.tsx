@@ -73,6 +73,12 @@ interface ICompareSidebarState {
 
   /** Data to be reordered via keyboard */
   readonly keyboardReorderData?: KeyboardInsertionData
+
+  /**
+   * What the user has typed in the commit search box. Kept locally so typing
+   * stays responsive while the (debounced) search runs in the app store.
+   */
+  readonly commitFilterText: string
 }
 
 /** If we're within this many rows from the bottom, load the next history batch. */
@@ -86,16 +92,27 @@ export class CompareSidebar extends React.Component<
   private readonly loadChangedFilesScheduler = new ThrottledScheduler(200)
   private branchList: BranchList | null = null
   private commitListRef = React.createRef<CommitList>()
+  private commitFilterTextbox: TextBox | null = null
+  private readonly commitFilterScheduler = new ThrottledScheduler(200)
   private loadingMoreCommitsPromise: Promise<void> | null = null
   private resultCount = 0
 
   public constructor(props: ICompareSidebarProps) {
     super(props)
 
-    this.state = { focusedBranch: null }
+    this.state = { focusedBranch: null, commitFilterText: '' }
   }
 
   public componentWillReceiveProps(nextProps: ICompareSidebarProps) {
+    const { commitFilterText } = nextProps.compareState
+
+    if (
+      commitFilterText !== this.props.compareState.commitFilterText &&
+      commitFilterText !== this.state.commitFilterText
+    ) {
+      this.setState({ commitFilterText })
+    }
+
     const newFormState = nextProps.compareState.formState
     const oldFormState = this.props.compareState.formState
 
@@ -151,6 +168,8 @@ export class CompareSidebar extends React.Component<
 
   public componentWillUnmount() {
     this.textbox = null
+    this.commitFilterTextbox = null
+    this.commitFilterScheduler.clear()
 
     // by hiding the branch list here when the component is torn down
     // we ensure any ahead/behind computation work is discarded
@@ -194,11 +213,64 @@ export class CompareSidebar extends React.Component<
     const formState = this.props.compareState.formState
     return (
       <div className="compare-commit-list">
-        {formState.kind === HistoryTabMode.History
-          ? this.renderCommitList()
-          : this.renderTabBar(formState)}
+        {formState.kind === HistoryTabMode.History ? (
+          <>
+            {this.renderCommitFilter()}
+            {this.renderCommitList()}
+          </>
+        ) : (
+          this.renderTabBar(formState)
+        )}
       </div>
     )
+  }
+
+  private renderCommitFilter() {
+    return (
+      <div className="commit-filter">
+        <FancyTextBox
+          ariaLabel="Search commits by message"
+          symbol={octicons.search}
+          displayClearButton={true}
+          placeholder="Search commits"
+          value={this.state.commitFilterText}
+          onRef={this.onCommitFilterTextBoxRef}
+          onValueChanged={this.onCommitFilterTextChanged}
+          onKeyDown={this.onCommitFilterKeyDown}
+          onSearchCleared={this.onCommitFilterCleared}
+        />
+      </div>
+    )
+  }
+
+  private onCommitFilterTextBoxRef = (textbox: TextBox) => {
+    this.commitFilterTextbox = textbox
+  }
+
+  private onCommitFilterTextChanged = (text: string) => {
+    this.setState({ commitFilterText: text })
+    this.commitFilterScheduler.queue(() =>
+      this.props.dispatcher.setHistoryCommitFilter(this.props.repository, text)
+    )
+  }
+
+  private onCommitFilterCleared = () => {
+    this.commitFilterScheduler.clear()
+    this.setState({ commitFilterText: '' })
+    this.props.dispatcher.setHistoryCommitFilter(this.props.repository, '')
+  }
+
+  private onCommitFilterKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key === 'Escape' && this.state.commitFilterText.length > 0) {
+      event.preventDefault()
+      this.onCommitFilterCleared()
+    } else if (event.key === 'ArrowDown' || event.key === 'Enter') {
+      event.preventDefault()
+      this.commitFilterTextbox?.blur()
+      this.commitListRef.current?.focus()
+    }
   }
 
   private filterListResultsChanged = (resultCount: number) => {
@@ -218,9 +290,14 @@ export class CompareSidebar extends React.Component<
   private renderCommitList() {
     const { formState, commitSHAs } = this.props.compareState
 
+    const { commitFilterText } = this.props.compareState
+
     let emptyListMessage: string | JSX.Element
     if (formState.kind === HistoryTabMode.History) {
-      emptyListMessage = 'No history'
+      emptyListMessage =
+        commitFilterText.length > 0
+          ? `No commits match "${commitFilterText}"`
+          : 'No history'
     } else {
       const currentlyComparedBranchName = formState.comparisonBranch.name
 

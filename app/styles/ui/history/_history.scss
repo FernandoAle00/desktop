@@ -33,6 +33,12 @@
     border-bottom: var(--base-border);
   }
 
+  .commit-filter {
+    flex: initial;
+    padding: var(--spacing-half);
+    border-bottom: var(--base-border);
+  }
+
   .compare-commit-list {
     flex: 1;
     display: flex;

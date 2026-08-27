@@ -245,6 +245,17 @@ export class Dispatcher {
     return this.appStore._loadNextCommitBatch(repository)
   }
 
+  /**
+   * Narrow the history down to the commits whose message matches `text`, or
+   * restore the full history when `text` is empty.
+   */
+  public setHistoryCommitFilter(
+    repository: Repository,
+    text: string
+  ): Promise<void> {
+    return this.appStore._setHistoryCommitFilter(repository, text)
+  }
+
   /** Load the changed files for the current history selection. */
   public loadChangedFilesForCurrentSelection(
     repository: Repository

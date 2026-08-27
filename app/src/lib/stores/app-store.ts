@@ -1798,7 +1798,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       if (
         tipIsUnchanged &&
         formState.kind === HistoryTabMode.History &&
-        commitSHAs.length > 0
+        (commitSHAs.length > 0 || compareState.commitFilterText.length > 0)
       ) {
         // don't refresh the history view here because we know nothing important
         // has changed and we don't want to rebuild this state
@@ -1821,6 +1821,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         formState: newState,
         commitSHAs: commits,
         filterText: '',
+        commitFilterText: '',
         showBranchList: false,
       }))
       this.updateOrSelectFirstCommit(repository, commits)
@@ -1953,6 +1954,56 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.emitUpdate()
   }
 
+  /**
+   * This shouldn't be called directly. See `Dispatcher`.
+   *
+   * Narrows the history down to the commits whose message matches `text`, or
+   * restores the full history when `text` is empty.
+   */
+  public async _setHistoryCommitFilter(
+    repository: Repository,
+    text: string
+  ): Promise<void> {
+    const { compareState } = this.repositoryStateCache.get(repository)
+
+    if (
+      compareState.commitFilterText === text ||
+      compareState.formState.kind !== HistoryTabMode.History
+    ) {
+      return
+    }
+
+    this.repositoryStateCache.updateCompareState(repository, () => ({
+      commitFilterText: text,
+    }))
+    this.emitUpdate()
+
+    const gitStore = this.gitStoreCache.get(repository)
+    const commits = await gitStore.loadCommitBatch(
+      'HEAD',
+      0,
+      commitMessageFilterArgs(text)
+    )
+
+    if (commits === null) {
+      return
+    }
+
+    // The user may have kept typing while we were loading, in which case this
+    // batch belongs to a search that's no longer on screen.
+    const { compareState: currentState } =
+      this.repositoryStateCache.get(repository)
+    if (currentState.commitFilterText !== text) {
+      return
+    }
+
+    this.repositoryStateCache.updateCompareState(repository, () => ({
+      commitSHAs: commits,
+    }))
+    this.updateOrSelectFirstCommit(repository, commits)
+    this.emitUpdate()
+  }
+
   /** This shouldn't be called directly. See `Dispatcher`. */
   public async _loadNextCommitBatch(repository: Repository): Promise<void> {
     const gitStore = this.gitStoreCache.get(repository)
@@ -1961,13 +2012,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const { formState } = state.compareState
     if (formState.kind === HistoryTabMode.History) {
       const commits = state.compareState.commitSHAs
+      const { commitFilterText } = state.compareState
 
       const tip = state.branchesState.tip
 
       let newCommits: string[] | null = null
 
-      // Prioritize pulling from the local commits if the last one we pulled is local
+      // Prioritize pulling from the local commits if the last one we pulled is
+      // local. Local commits aren't filtered by message so we skip this when
+      // the user is searching the history.
       if (
+        commitFilterText.length === 0 &&
         commits.length > 0 &&
         tip.kind === TipState.Valid &&
         gitStore.localCommitSHAs.includes(commits[commits.length - 1])
@@ -1976,10 +2031,19 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
 
       if (!newCommits || newCommits.length === 0) {
-        newCommits = await gitStore.loadCommitBatch('HEAD', commits.length)
+        newCommits = await gitStore.loadCommitBatch(
+          'HEAD',
+          commits.length,
+          commitMessageFilterArgs(commitFilterText)
+        )
       }
 
       if (!newCommits) {
+        return
+      }
+
+      const { compareState } = this.repositoryStateCache.get(repository)
+      if (compareState.commitFilterText !== commitFilterText) {
         return
       }
 
@@ -10713,6 +10777,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
  * to perform which is then used to compute the compare
  * view contents.
  */
+/**
+ * The `git log` arguments that narrow the history down to the commits whose
+ * message contains `filterText`. Empty text means no filtering at all.
+ */
+function commitMessageFilterArgs(filterText: string): ReadonlyArray<string> {
+  return filterText.length === 0
+    ? []
+    : [`--grep=${filterText}`, '--fixed-strings', '--regexp-ignore-case']
+}
+
 function getInitialAction(
   cachedState: IDisplayHistory | ICompareBranch
 ): CompareAction {
