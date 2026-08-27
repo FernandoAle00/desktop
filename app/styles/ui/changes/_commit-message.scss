@@ -216,7 +216,7 @@
     &.focus-within {
       outline: none;
       border-color: var(--focus-color);
-      box-shadow: 0 0 0 1px var(--text-field-focus-shadow-color);
+      box-shadow: 0 0 0 3px var(--text-field-focus-shadow-color);
     }
 
     .description-field.with-overflow {
@@ -239,8 +239,13 @@
       font-size: var(--font-size);
       font-family: var(--font-family-sans-serif);
       padding: var(--spacing-half);
-      resize: none;
+
+      // Long commit bodies don't fit in the default box, so the field can be
+      // dragged taller. It grows downward into the file list, which stops at
+      // its own min-height, and the cap keeps the form from taking the sidebar.
+      resize: vertical;
       min-height: 100px;
+      max-height: 60vh;
 
       &:focus {
         outline: 0;
