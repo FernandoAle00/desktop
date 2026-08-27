@@ -10,7 +10,6 @@ import { getAvatarUsersForCommit, IAvatarUser } from '../../models/avatar'
 import { AvatarStack } from '../lib/avatar-stack'
 import { CommitAttribution } from '../lib/commit-attribution'
 import { Tokenizer, TokenResult } from '../../lib/text-token-parser'
-import { wrapRichTextCommitMessage } from '../../lib/wrap-rich-text-commit-message'
 import { IChangesetData } from '../../lib/git'
 import uniqWith from 'lodash/uniqWith'
 import { LinkButton } from '../lib/link-button'
@@ -86,8 +85,9 @@ interface IExpandableCommitSummaryState {
 /**
  * Creates the state object for the ExpandableCommitSummary component.
  *
- * Ensures that the commit summary never exceeds 72 characters and wraps it
- * into the commit body if it does.
+ * The summary and the body are tokenized as they were written. A summary that
+ * doesn't fit on one line wraps in CSS, so the text stays one uninterrupted
+ * run and copying it gives back the original single line.
  *
  * @param isOverflowed Whether or not the component should render the commit
  *                     body in expanded mode, see the documentation for the
@@ -102,11 +102,10 @@ function createState(
   const { emoji, repository, selectedCommits } = props
   const tokenizer = new Tokenizer(emoji, repository)
 
-  const { summary, body } = wrapRichTextCommitMessage(
-    getCommitSummary(selectedCommits),
-    selectedCommits[0].body,
-    tokenizer
+  const summary = tokenizer.tokenize(
+    getCommitSummary(selectedCommits).trimEnd()
   )
+  const body = tokenizer.tokenize(selectedCommits[0].body.trimEnd())
 
   const hasEmptySummary =
     selectedCommits.length === 1 && selectedCommits[0].summary.length === 0
