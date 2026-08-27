@@ -846,6 +846,11 @@ export class CommitList extends React.Component<
       },
       { type: 'separator' },
       {
+        label: __DARWIN__ ? 'Copy Commit Summary' : 'Copy commit summary',
+        action: () => clipboard.writeText(commit.summary),
+        enabled: commit.summary.length > 0,
+      },
+      {
         label: 'Copy SHA',
         action: () => clipboard.writeText(commit.sha),
       },
