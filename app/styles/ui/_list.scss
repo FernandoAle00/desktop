@@ -14,7 +14,8 @@
   overflow: hidden;
 
   .ReactVirtualized__Grid {
-    background: var(--background-color);
+    // Inherit whichever surface the list was dropped onto
+    background: transparent;
   }
 
   .keyboard-insertion-element {
@@ -90,8 +91,12 @@
   flex-direction: row;
   align-items: center;
 
-  width: 100%;
-  height: 100%;
+  // The row is inset from the edges of the list so selection and hover read as
+  // a shape sitting on the surface rather than a band running wall to wall.
+  width: auto;
+  height: calc(100% - 2px);
+  margin: 1px var(--spacing-half);
+  border-radius: var(--border-radius);
 
   &.selected {
     --text-color: var(--box-selected-text-color);

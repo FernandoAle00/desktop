@@ -17,22 +17,19 @@
   }
 
   & .toolbar-dropdown-arrow-button {
-    width: 39px;
+    width: 32px;
   }
 
   &.open {
     &.foldout-style > .toolbar-button > button,
     &.multi-option-style > .toolbar-dropdown-arrow-button > button {
-      color: var(--toolbar-button-active-color);
-      background-color: var(--toolbar-button-active-background-color);
-
-      // The foldout doesn't have a border so we have to either
-      // color ours or remove it entirely for us to match the
-      // min-width of the foldout.
-      border-color: var(--toolbar-button-active-border-color);
+      // The chip stays a chip while its foldout is open; it reads as pressed
+      // instead of dissolving into the panel below it.
+      color: var(--toolbar-button-hover-color);
+      background-color: var(--toolbar-button-hover-background-color);
 
       .description {
-        color: var(--text-secondary-color);
+        color: var(--toolbar-button-secondary-color);
       }
 
       .progress {

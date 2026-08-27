@@ -3,10 +3,12 @@
 /** A React component holding the main application toolbar component. */
 #desktop-app-toolbar {
   height: var(--toolbar-height);
-  border-bottom: 1px solid var(--toolbar-border-color);
 
   display: flex;
   flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-third);
+  padding: 0 var(--spacing-half);
 
   flex-grow: 0;
   flex-shrink: 0;
@@ -33,11 +35,16 @@
     }
   }
 
+  .sidebar-section {
+    gap: var(--spacing-third);
+  }
+
   .toolbar-button {
+    height: var(--toolbar-button-height);
+
     &.resizable {
-      // Fill the available height of the parent
       flex-grow: 1;
-      max-height: var(--toolbar-height);
+      max-height: var(--toolbar-button-height);
     }
 
     &.push-pull-button {
@@ -62,7 +69,7 @@
       }
     }
     &.toolbar-dropdown-arrow-button {
-      width: 39px;
+      width: 32px;
       &.resizable {
         flex-shrink: 0;
       }
@@ -101,6 +108,7 @@
 
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 
   span {
     display: flex;

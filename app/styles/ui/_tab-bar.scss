@@ -32,9 +32,13 @@
     background-color: var(--box-border-color);
   }
 
-  &.tabs &-item {
-    border-radius: 0;
+  &.tabs {
+    align-items: center;
+    gap: var(--spacing-third);
+    padding: var(--spacing-half);
+  }
 
+  &.tabs &-item {
     // Give each item equal space
     flex: 1;
 
@@ -43,26 +47,24 @@
     align-items: center;
     justify-content: center;
 
-    border-bottom: 1px solid var(--box-border-color);
-    border-right: 1px solid var(--box-border-color);
+    height: 100%;
+    border: none;
+    border-radius: var(--border-radius);
 
-    // This makes it so that we never render a double-width item border.
-    // It has the unintended consequence of making it impossible to have a tab
-    // bar with just one item but we can live with that.
-    &:last-child {
-      border-right: none;
-    }
+    // Unselected tabs recede; the selected one is the only filled shape in
+    // the row, which is what carries the state.
+    background: transparent;
+    color: var(--text-secondary-color);
+    font-weight: var(--font-weight-semibold);
 
-    // We intentionally swap foreground and background here to create
-    // a more intense selected state. The tab bar is kind of a special snowflake
-    // in so far that it doesn't have an active selection state, just a selected
-    // one.
     &.selected {
-      box-shadow: inset 0 -3px 0px var(--tab-bar-active-color);
+      background-color: var(--box-selected-background-color);
+      color: var(--text-color);
     }
 
-    &:hover {
+    &:not(.selected):hover {
       background: var(--tab-bar-hover-background-color);
+      color: var(--text-color);
     }
 
     .with-indicator {
@@ -77,6 +79,7 @@
     }
 
     .counter {
+      font-variant-numeric: tabular-nums;
       color: var(--tab-bar-count-color);
       background-color: var(--tab-bar-count-background-color);
       margin-left: 4px;

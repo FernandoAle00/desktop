@@ -23,7 +23,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --text-secondary-color-muted: #8c959f;
   --background-color: #{$white};
 
-  --button-height: 25px;
+  --button-height: 28px;
 
   --button-background: #{$blue};
   --button-border-radius: 6px;
@@ -274,7 +274,10 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   /** Tracking for display-sized text, which needs it tighter than body copy */
   --letter-spacing-tight: -0.02em;
 
-  --toolbar-height: 50px;
+  --toolbar-height: 44px;
+
+  /** Height of the chips that sit inside the toolbar */
+  --toolbar-button-height: 32px;
 
   --toolbar-background-color: #1f2328;
   --toolbar-border-color: #1f2328;
@@ -328,7 +331,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --toolbar-badge-background-color: #{$gray-600};
   --toolbar-badge-active-background-color: #{$gray-200};
 
-  --tab-bar-height: 29px;
+  --tab-bar-height: 36px;
   --tab-bar-active-color: #{$blue};
   --tab-bar-background-color: #{$white};
   --tab-bar-hover-background-color: #{$gray-100};
@@ -392,7 +395,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   /**
    * Variables for form elements
    */
-  --text-field-height: 25px;
+  --text-field-height: 28px;
   --text-field-focus-shadow-color: #{rgba($blue, 0.25)};
 
   /**
