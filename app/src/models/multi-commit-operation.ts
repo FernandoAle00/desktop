@@ -16,6 +16,30 @@ export const enum MultiCommitOperationKind {
   Squash = 'Squash',
   Merge = 'Merge',
   Reorder = 'Reorder',
+  InteractiveRebase = 'Interactive Rebase',
+}
+
+/**
+ * Actions that can be assigned to a commit in an interactive rebase todo list.
+ * Values match the verbs git rebase -i understands. `edit` is intentionally
+ * omitted: it pauses the rebase for a shell editor we never open.
+ */
+export const enum InteractiveRebaseAction {
+  Pick = 'pick',
+  Reword = 'reword',
+  Squash = 'squash',
+  Fixup = 'fixup',
+  Drop = 'drop',
+}
+
+/** One line of an interactive rebase plan as chosen in the dialog. */
+export interface IInteractiveRebaseTodoEntry {
+  readonly sha: string
+  readonly action: InteractiveRebaseAction
+  /**
+   * Full commit message used when `action` is `reword`. Ignored otherwise.
+   */
+  readonly message?: string
 }
 
 /** Type guard which narrows a string to a MultiCommitOperationKind */
@@ -26,13 +50,15 @@ export function isIdMultiCommitOperation(
   | MultiCommitOperationKind.CherryPick
   | MultiCommitOperationKind.Squash
   | MultiCommitOperationKind.Merge
-  | MultiCommitOperationKind.Reorder {
+  | MultiCommitOperationKind.Reorder
+  | MultiCommitOperationKind.InteractiveRebase {
   return (
     id === MultiCommitOperationKind.Rebase ||
     id === MultiCommitOperationKind.CherryPick ||
     id === MultiCommitOperationKind.Squash ||
     id === MultiCommitOperationKind.Merge ||
-    id === MultiCommitOperationKind.Reorder
+    id === MultiCommitOperationKind.Reorder ||
+    id === MultiCommitOperationKind.InteractiveRebase
   )
 }
 
@@ -48,6 +74,7 @@ export type MultiCommitOperationStep =
   | HideConflictsStep
   | ConfirmAbortStep
   | CreateBranchStep
+  | ChooseInteractiveRebasePlanStep
   | ShowCopilotConflictsLoadingStep
   | ShowCopilotConflictsStep
 
@@ -107,6 +134,12 @@ export const enum MultiCommitOperationStepKind {
    * Example: Cherry-picking to a new branch.
    */
   CreateBranch = 'CreateBranch',
+
+  /**
+   * The user is choosing pick/reword/squash/fixup/drop for each commit
+   * before an interactive rebase starts.
+   */
+  ChooseInteractiveRebasePlan = 'ChooseInteractiveRebasePlan',
 
   /**
    * Copilot is resolving conflicts. A loading interstitial is shown while
@@ -176,6 +209,10 @@ export type CreateBranchStep = {
   targetBranchName: string
 }
 
+export type ChooseInteractiveRebasePlanStep = {
+  readonly kind: MultiCommitOperationStepKind.ChooseInteractiveRebasePlan
+}
+
 export type ShowCopilotConflictsLoadingStep = {
   readonly kind: MultiCommitOperationStepKind.ShowCopilotConflictsLoading
   readonly conflictState: MultiCommitOperationConflictState
@@ -240,6 +277,16 @@ interface IReorderDetails extends IInteractiveRebaseDetails {
   readonly beforeCommit: Commit | null
 }
 
+interface IInteractiveRebaseOperationDetails extends IInteractiveRebaseDetails {
+  readonly kind: MultiCommitOperationKind.InteractiveRebase
+
+  /**
+   * Todo-list entries in oldest-first order, matching `git rebase -i`.
+   * Empty until the user confirms the plan in the dialog.
+   */
+  readonly entries: ReadonlyArray<IInteractiveRebaseTodoEntry>
+}
+
 interface ICherryPickDetails extends ISourceBranchDetails {
   readonly kind: MultiCommitOperationKind.CherryPick
   /**
@@ -273,6 +320,7 @@ interface IMergeDetails extends ISourceBranchDetails {
 export type MultiCommitOperationDetail =
   | ISquashDetails
   | IReorderDetails
+  | IInteractiveRebaseOperationDetails
   | ICherryPickDetails
   | IRebaseDetails
   | IMergeDetails

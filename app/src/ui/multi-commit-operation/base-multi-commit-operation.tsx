@@ -80,6 +80,14 @@ export abstract class BaseMultiCommitOperation extends React.Component<IMultiCom
   protected abstract renderChooseBranch: () => JSX.Element | null
   protected abstract renderCreateBranch: () => JSX.Element | null
 
+  /**
+   * Plan picker for interactive rebase. Other operations never reach this step.
+   */
+  protected renderChooseInteractiveRebasePlan(): JSX.Element | null {
+    this.endFlowInvalidState()
+    return null
+  }
+
   /** Initiate Copilot conflict resolution for the current operation. */
   protected onResolveWithCopilot = () => {
     const { dispatcher, repository, state } = this.props
@@ -235,6 +243,9 @@ export abstract class BaseMultiCommitOperation extends React.Component<IMultiCom
     switch (step.kind) {
       case MultiCommitOperationStepKind.ChooseBranch: {
         return this.renderChooseBranch()
+      }
+      case MultiCommitOperationStepKind.ChooseInteractiveRebasePlan: {
+        return this.renderChooseInteractiveRebasePlan()
       }
       case MultiCommitOperationStepKind.ShowProgress:
         const { emoji } = this.props

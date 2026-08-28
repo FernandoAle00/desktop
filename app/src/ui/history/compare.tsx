@@ -422,6 +422,7 @@ export class CompareSidebar extends React.Component<
         onKeyboardReorder={this.onKeyboardReorder}
         onCancelKeyboardReorder={this.onCancelKeyboardReorder}
         onSquash={this.onSquash}
+        onInteractiveRebase={this.onInteractiveRebase}
         emptyListMessage={emptyListMessage}
         onCompareListScrolled={this.props.onCompareListScrolled}
         compareListScrollTop={this.props.compareListScrollTop}
@@ -811,6 +812,17 @@ export class CompareSidebar extends React.Component<
         itemIndices: toReorder.map(c => commitSHAs.indexOf(c.sha)),
       },
     })
+  }
+
+  private onInteractiveRebase = (
+    commits: ReadonlyArray<Commit>,
+    lastRetainedCommitRef: string | null
+  ) => {
+    this.props.dispatcher.showInteractiveRebaseDialog(
+      this.props.repository,
+      commits,
+      lastRetainedCommitRef
+    )
   }
 
   private onSquash = async (

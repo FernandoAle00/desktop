@@ -64,6 +64,12 @@ function getOperationPhrase(
           Reordering <Ref>{ourLabel}</Ref>
         </span>
       )
+    case MultiCommitOperationKind.InteractiveRebase:
+      return (
+        <span>
+          Interactive rebase on <Ref>{ourLabel}</Ref>
+        </span>
+      )
     default:
       return assertNever(kind, `Unknown operation kind: ${kind}`)
   }

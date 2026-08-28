@@ -38,6 +38,7 @@ import {
   getRebaseSnapshot,
   getRepositoryType,
   listWorktrees,
+  doMergeCommitsExistAfterCommit,
 } from '../../lib/git'
 import { isGitOnPath } from '../../lib/is-git-on-path'
 import {
@@ -118,6 +119,8 @@ import { ILastThankYou } from '../../models/last-thank-you'
 import { dragAndDropManager } from '../../lib/drag-and-drop-manager'
 import {
   CreateBranchStep,
+  InteractiveRebaseAction,
+  IInteractiveRebaseTodoEntry,
   MultiCommitOperationDetail,
   MultiCommitOperationKind,
   MultiCommitOperationStep,
@@ -2382,6 +2385,12 @@ export class Dispatcher {
           retryAction.beforeCommit,
           retryAction.lastRetainedCommitRef
         )
+      case RetryActionType.InteractiveRebase:
+        return this.showInteractiveRebaseDialog(
+          retryAction.repository,
+          retryAction.commits,
+          retryAction.lastRetainedCommitRef
+        )
       case RetryActionType.DiscardChanges:
         return this.discardChanges(
           retryAction.repository,
@@ -3709,6 +3718,178 @@ export class Dispatcher {
     )
   }
 
+  /**
+   * Opens the interactive rebase plan dialog for commits from
+   * `lastRetainedCommitRef` through HEAD.
+   */
+  public async showInteractiveRebaseDialog(
+    repository: Repository,
+    commits: ReadonlyArray<Commit>,
+    lastRetainedCommitRef: string | null
+  ) {
+    const retry: RetryAction = {
+      type: RetryActionType.InteractiveRebase,
+      repository,
+      commits,
+      lastRetainedCommitRef,
+    }
+
+    if (this.appStore._checkForUncommittedChanges(repository, retry)) {
+      return
+    }
+
+    const stateBefore = this.repositoryStateManager.get(repository)
+    const { tip } = stateBefore.branchesState
+
+    if (tip.kind !== TipState.Valid) {
+      log.info(
+        `[interactive-rebase] - invalid tip state - could not start interactive rebase.`
+      )
+      return
+    }
+
+    if (commits.length === 0) {
+      log.info(`[interactive-rebase] - no commits provided.`)
+      return
+    }
+
+    if (
+      await doMergeCommitsExistAfterCommit(repository, lastRetainedCommitRef)
+    ) {
+      this.postError(
+        new Error(
+          `Unable to start interactive rebase. Replaying these commits would include a merge commit.`
+        )
+      )
+      return
+    }
+
+    this.appStore._initializeMultiCommitOperation(
+      repository,
+      {
+        kind: MultiCommitOperationKind.InteractiveRebase,
+        lastRetainedCommitRef,
+        commits,
+        currentTip: tip.branch.tip.sha,
+        entries: [],
+      },
+      tip.branch,
+      commits,
+      tip.branch.tip.sha
+    )
+
+    this.setMultiCommitOperationStep(repository, {
+      kind: MultiCommitOperationStepKind.ChooseInteractiveRebasePlan,
+    })
+
+    this.showPopup({
+      type: PopupType.MultiCommitOperation,
+      repository,
+    })
+  }
+
+  /**
+   * Starts an interactive rebase with the given todo-list entries.
+   */
+  public async startInteractiveRebase(
+    repository: Repository,
+    commits: ReadonlyArray<Commit>,
+    lastRetainedCommitRef: string | null,
+    entries: ReadonlyArray<IInteractiveRebaseTodoEntry>,
+    continueWithForcePush: boolean = false
+  ): Promise<void> {
+    const retry: RetryAction = {
+      type: RetryActionType.InteractiveRebase,
+      repository,
+      commits,
+      lastRetainedCommitRef,
+    }
+
+    if (this.appStore._checkForUncommittedChanges(repository, retry)) {
+      return
+    }
+
+    const stateBefore = this.repositoryStateManager.get(repository)
+    const { tip } = stateBefore.branchesState
+
+    if (tip.kind !== TipState.Valid) {
+      log.info(
+        `[interactive-rebase] - invalid tip state - could not perform interactive rebase.`
+      )
+      return
+    }
+
+    if (entries.length === 0) {
+      log.info(`[interactive-rebase] - no todo entries provided.`)
+      return
+    }
+
+    this.appStore._initializeMultiCommitOperation(
+      repository,
+      {
+        kind: MultiCommitOperationKind.InteractiveRebase,
+        lastRetainedCommitRef,
+        commits,
+        currentTip: tip.branch.tip.sha,
+        entries,
+      },
+      tip.branch,
+      commits,
+      tip.branch.tip.sha
+    )
+
+    this.showPopup({
+      type: PopupType.MultiCommitOperation,
+      repository,
+    })
+
+    this.appStore._setMultiCommitOperationUndoState(repository, tip)
+
+    const { askForConfirmationOnForcePush } = this.appStore.getState()
+
+    if (askForConfirmationOnForcePush && !continueWithForcePush) {
+      const showWarning = await this.warnAboutRemoteCommits(
+        repository,
+        tip.branch,
+        lastRetainedCommitRef
+      )
+
+      if (showWarning) {
+        this.setMultiCommitOperationStep(repository, {
+          kind: MultiCommitOperationStepKind.WarnForcePush,
+          targetBranch: tip.branch,
+          baseBranch: tip.branch,
+          commits,
+        })
+        return
+      }
+    }
+
+    const result = await this.appStore._interactiveRebase(
+      repository,
+      lastRetainedCommitRef,
+      entries
+    )
+
+    this.logHowToRevertMultiCommitOperation(
+      MultiCommitOperationKind.InteractiveRebase,
+      tip
+    )
+
+    const replayedCount = entries.filter(
+      entry => entry.action !== InteractiveRebaseAction.Drop
+    ).length
+
+    return this.processMultiCommitOperationRebaseResult(
+      MultiCommitOperationKind.InteractiveRebase,
+      repository,
+      result,
+      replayedCount === 0 ? commits.length : replayedCount,
+      tip.branch.name,
+      `${MultiCommitOperationKind.InteractiveRebase.toLowerCase()} commit`
+    )
+  }
+
   public initializeMultiCommitOperation(
     repository: Repository,
     operationDetail: MultiCommitOperationDetail,
@@ -3916,6 +4097,7 @@ export class Dispatcher {
         banner = { ...bannerBase, type: BannerType.SuccessfulSquash }
         break
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         banner = { ...bannerBase, type: BannerType.SuccessfulReorder }
         break
       case MultiCommitOperationKind.CherryPick:

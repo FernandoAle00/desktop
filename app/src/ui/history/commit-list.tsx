@@ -140,6 +140,15 @@ interface ICommitListProps {
   ) => void
 
   /**
+   * Callback to fire to open the interactive rebase dialog from a commit.
+   * `commits` are oldest-first from the chosen base through HEAD.
+   */
+  readonly onInteractiveRebase?: (
+    commits: ReadonlyArray<Commit>,
+    lastRetainedCommitRef: string | null
+  ) => void
+
+  /**
    * Optional callback that fires on page scroll in order to allow passing
    * a new scrollTop value up to the parent component for storing.
    */
@@ -871,6 +880,12 @@ export class CommitList extends React.Component<
       enabled: this.canReorder(),
     })
 
+    items.push({
+      label: __DARWIN__ ? 'Interactive Rebase…' : 'Interactive rebase…',
+      action: () => this.onInteractiveRebase(row),
+      enabled: this.canInteractiveRebase(),
+    })
+
     items.push(
       {
         label: __DARWIN__
@@ -968,6 +983,36 @@ export class CommitList extends React.Component<
     this.props.disableReordering === false &&
     this.props.isMultiCommitOperationInProgress === false
 
+  private canInteractiveRebase = () =>
+    this.props.onInteractiveRebase !== undefined &&
+    this.props.disableReordering === false &&
+    this.props.isMultiCommitOperationInProgress === false
+
+  private onInteractiveRebase = (oldestIndex: number) => {
+    const { commitSHAs, commitLookup, onInteractiveRebase } = this.props
+    if (onInteractiveRebase === undefined || oldestIndex < 0) {
+      return
+    }
+
+    const rangeSHAs = commitSHAs.slice(0, oldestIndex + 1)
+    const commitsOldestFirst: Commit[] = []
+    for (let i = rangeSHAs.length - 1; i >= 0; i--) {
+      const commit = commitLookup.get(rangeSHAs[i])
+      if (commit !== undefined) {
+        commitsOldestFirst.push(commit)
+      }
+    }
+
+    if (commitsOldestFirst.length === 0) {
+      return
+    }
+
+    onInteractiveRebase(
+      commitsOldestFirst,
+      this.getLastRetainedCommitRef([oldestIndex])
+    )
+  }
+
   private canSquash(): boolean {
     const { onSquash, disableSquashing, isMultiCommitOperationInProgress } =
       this.props
@@ -1039,6 +1084,21 @@ export class CommitList extends React.Component<
           : `Reorder ${count} commits…`,
         action: () => this.props.onKeyboardReorder?.(this.selectedCommits),
         enabled: this.canReorder(),
+      },
+      {
+        label: __DARWIN__
+          ? `Interactive Rebase ${count} Commits…`
+          : `Interactive rebase ${count} commits…`,
+        action: () => {
+          const indexes = this.props.selectedSHAs
+            .map(sha => this.props.commitSHAs.indexOf(sha))
+            .filter(i => i >= 0)
+          if (indexes.length === 0) {
+            return
+          }
+          this.onInteractiveRebase(Math.max(...indexes))
+        },
+        enabled: this.canInteractiveRebase(),
       },
     ]
   }

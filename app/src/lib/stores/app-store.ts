@@ -382,8 +382,10 @@ import {
 import { DragElement } from '../../models/drag-drop'
 import { ILastThankYou } from '../../models/last-thank-you'
 import { squash } from '../git/squash'
+import { interactiveRebase } from '../git/interactive-rebase'
 import { getTipSha } from '../tip'
 import {
+  IInteractiveRebaseTodoEntry,
   MultiCommitOperationDetail,
   MultiCommitOperationKind,
   MultiCommitOperationStep,
@@ -9833,6 +9835,34 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _interactiveRebase(
+    repository: Repository,
+    lastRetainedCommitRef: string | null,
+    entries: ReadonlyArray<IInteractiveRebaseTodoEntry>
+  ): Promise<RebaseResult> {
+    if (entries.length === 0) {
+      log.error(
+        '[_interactiveRebase] - Unable to rebase. No todo entries provided.'
+      )
+      return RebaseResult.Error
+    }
+
+    const progressCallback =
+      this.getMultiCommitOperationProgressCallBack(repository)
+    const gitStore = this.gitStoreCache.get(repository)
+    const result = await gitStore.performFailableOperation(() =>
+      interactiveRebase(
+        repository,
+        lastRetainedCommitRef,
+        entries,
+        progressCallback
+      )
+    )
+
+    return result || RebaseResult.Error
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _undoMultiCommitOperation(
     mcos: IMultiCommitOperationState,
     repository: Repository,
@@ -9909,6 +9939,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         }
         break
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         banner = {
           type: BannerType.ReorderUndone,
           commitsCount,

@@ -204,6 +204,8 @@ export class LocalChangesOverwrittenDialog extends React.Component<
         return 'squash'
       case RetryActionType.Reorder:
         return 'reorder'
+      case RetryActionType.InteractiveRebase:
+        return 'interactive rebase'
       case RetryActionType.DiscardChanges:
         return 'discard changes'
       case RetryActionType.PopStash:

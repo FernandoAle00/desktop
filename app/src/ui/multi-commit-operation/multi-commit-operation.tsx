@@ -7,6 +7,7 @@ import { Merge } from './merge'
 import { Reorder } from './reorder'
 import { CherryPick } from './cherry-pick'
 import { Rebase } from './rebase'
+import { InteractiveRebase } from './interactive-rebase'
 
 /** A component for managing the views of a multi commit operation. */
 export class MultiCommitOperation extends React.Component<IMultiCommitOperationProps> {
@@ -92,6 +93,8 @@ export class MultiCommitOperation extends React.Component<IMultiCommitOperationP
             openRepositoryInShell={this.props.openRepositoryInShell}
           />
         )
+      case MultiCommitOperationKind.InteractiveRebase:
+        return <InteractiveRebase {...this.props} />
       default:
         return assertNever(
           kind,
