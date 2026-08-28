@@ -30,10 +30,10 @@ type BlameViewState =
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'error'; readonly message: string }
 
-/** Context menu label for opening blame. Same on Darwin and Windows. */
+/** Context menu item for opening blame on a file. */
 export function getBlameMenuItem(action: () => void): IMenuItem {
   return {
-    label: __DARWIN__ ? 'Blame' : 'Blame',
+    label: __DARWIN__ ? 'Blame File' : 'Blame file',
     action,
   }
 }
