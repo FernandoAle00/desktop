@@ -468,6 +468,12 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           onChangesListScrolled={this.props.onChangesListScrolled}
           changesListScrollTop={this.props.changesListScrollTop}
           stashEntry={this.props.changes.stashEntry}
+          stashEntries={this.props.changes.stashEntries}
+          selectedStashSha={
+            selection.kind === ChangesSelectionKind.Stash
+              ? selection.selectedStashSha
+              : null
+          }
           isShowingStashEntry={isShowingStashEntry}
           currentBranchProtected={currentBranchProtected}
           shouldNudgeToCommit={this.props.shouldNudgeToCommit}

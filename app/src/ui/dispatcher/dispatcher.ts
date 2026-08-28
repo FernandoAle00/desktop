@@ -2883,6 +2883,28 @@ export class Dispatcher {
     return this.appStore._popStashEntry(repository, stashEntry)
   }
 
+  /** Apply the given stash without dropping it */
+  public applyStash(repository: Repository, stashEntry: IStashEntry) {
+    return this.appStore._applyStashEntry(repository, stashEntry)
+  }
+
+  /**
+   * Create a stash with an optional message from the Changes tab.
+   * Does not use the Desktop magic marker, so it shows up as a regular stash.
+   */
+  public createStash(
+    repository: Repository,
+    message: string,
+    includeUntracked: boolean
+  ) {
+    return this.appStore._createStash(repository, message, includeUntracked)
+  }
+
+  /** Show a specific stash (by SHA) in the stash diff viewer */
+  public selectStashEntry(repository: Repository, stashEntry: IStashEntry) {
+    return this.appStore._selectStashEntry(repository, stashEntry)
+  }
+
   /**
    * Set the width of the commit summary column in the
    * history view to the given value.

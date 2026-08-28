@@ -436,16 +436,25 @@ export class RepositoryView extends React.Component<
 
   private renderStashedChangesContent(): JSX.Element | null {
     const { changesState } = this.props.state
-    const { selection, stashEntry } = changesState
+    const { selection, stashEntry, stashEntries } = changesState
 
-    if (selection.kind !== ChangesSelectionKind.Stash || stashEntry === null) {
+    if (selection.kind !== ChangesSelectionKind.Stash) {
       return null
     }
 
-    if (stashEntry.files.kind === StashedChangesLoadStates.Loaded) {
+    const viewedStash =
+      (selection.selectedStashSha !== null
+        ? stashEntries.find(e => e.stashSha === selection.selectedStashSha)
+        : undefined) ?? stashEntry
+
+    if (viewedStash === null) {
+      return null
+    }
+
+    if (viewedStash.files.kind === StashedChangesLoadStates.Loaded) {
       return (
         <StashDiffViewer
-          stashEntry={stashEntry}
+          stashEntry={viewedStash}
           selectedStashedFile={selection.selectedStashedFile}
           stashedFileDiff={selection.selectedStashedFileDiff}
           imageDiffType={this.props.imageDiffType}

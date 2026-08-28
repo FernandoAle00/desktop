@@ -57,7 +57,9 @@ import { Popup, PopupType } from '../../models/popup'
 import { EOL } from 'os'
 import { RepoRulesInfo } from '../../models/repo-rules'
 import { IAheadBehind } from '../../models/branch'
-import { StashDiffViewerId } from '../stashing'
+import { StashDiffViewerId, StashList, CreateStashDialog } from '../stashing'
+import { DialogStackContext } from '../dialog'
+import { IStashListEntry } from '../../lib/git/stash'
 import { AugmentedSectionFilterList } from '../lib/augmented-filter-list'
 import { IFilterListGroup, IFilterListItem } from '../lib/filter-list'
 import { ClickSource } from '../lib/list'
@@ -206,6 +208,10 @@ interface IFilterChangesListProps {
 
   readonly stashEntry: IStashEntry | null
 
+  readonly stashEntries: ReadonlyArray<IStashListEntry>
+
+  readonly selectedStashSha: string | null
+
   readonly isShowingStashEntry: boolean
 
   /**
@@ -257,6 +263,7 @@ interface IFilterChangesListState {
   readonly selectedItems: ReadonlyArray<IChangesListItem>
   readonly focusedRow: string | null
   readonly groups: ReadonlyArray<IFilterListGroup<IChangesListItem>>
+  readonly showCreateStashDialog: boolean
 }
 
 function getSelectedItemsFromProps(
@@ -369,6 +376,7 @@ export class FilterChangesList extends React.Component<
       selectedItems: getSelectedItemsFromProps(props),
       focusedRow: null,
       groups,
+      showCreateStashDialog: false,
     }
   }
 
@@ -1120,25 +1128,72 @@ export class FilterChangesList extends React.Component<
     }
   }
 
-  private onStashEntryClicked = () => {
-    const { isShowingStashEntry, dispatcher, repository } = this.props
+  private onStashListItemClicked = (stash: IStashListEntry) => {
+    const { isShowingStashEntry, selectedStashSha, dispatcher, repository } =
+      this.props
 
-    if (isShowingStashEntry) {
+    if (isShowingStashEntry && selectedStashSha === stash.stashSha) {
       dispatcher.selectWorkingDirectoryFiles(repository)
-
-      // If the button is clicked, that implies the stash was not restored or discarded
       dispatcher.incrementMetric('noActionTakenOnStashCount')
     } else {
-      dispatcher.selectStashedFile(repository)
+      dispatcher.selectStashEntry(repository, stash)
       dispatcher.incrementMetric('stashViewCount')
     }
   }
 
-  private renderStashedChanges() {
-    if (this.props.stashEntry === null) {
-      return null
-    }
+  private onCreateStash = () => {
+    this.setState({ showCreateStashDialog: true })
+  }
 
+  private onCreateStashDialogDismissed = () => {
+    this.setState({ showCreateStashDialog: false })
+  }
+
+  private renderStashedChanges() {
+    const {
+      stashEntries,
+      stashEntry,
+      isShowingStashEntry,
+      selectedStashSha,
+      workingDirectory,
+      branch,
+      isCommitting,
+      conflictState,
+    } = this.props
+
+    const hasLocalChanges = workingDirectory.files.length > 0
+    const hasConflicts = conflictState !== null
+    const canCreateStash =
+      hasLocalChanges && branch !== null && !isCommitting && !hasConflicts
+
+    const viewedSha = isShowingStashEntry ? selectedStashSha : null
+
+    return (
+      <>
+        <StashList
+          stashEntries={stashEntries}
+          selectedStashSha={viewedSha}
+          canCreateStash={canCreateStash}
+          onStashSelected={this.onStashListItemClicked}
+          onCreateStash={this.onCreateStash}
+        />
+        {stashEntries.length === 0 && stashEntry !== null
+          ? this.renderLegacyStashButton()
+          : null}
+        {this.state.showCreateStashDialog ? (
+          <DialogStackContext.Provider value={{ isTopMost: true }}>
+            <CreateStashDialog
+              dispatcher={this.props.dispatcher}
+              repository={this.props.repository}
+              onDismissed={this.onCreateStashDialogDismissed}
+            />
+          </DialogStackContext.Provider>
+        ) : null}
+      </>
+    )
+  }
+
+  private renderLegacyStashButton() {
     const className = classNames(
       'stashed-changes-button',
       this.props.isShowingStashEntry ? 'selected' : null
@@ -1147,7 +1202,7 @@ export class FilterChangesList extends React.Component<
     return (
       <button
         className={className}
-        onClick={this.onStashEntryClicked}
+        onClick={this.onLegacyStashButtonClicked}
         tabIndex={0}
         aria-expanded={this.props.isShowingStashEntry}
         aria-controls={
@@ -1159,6 +1214,18 @@ export class FilterChangesList extends React.Component<
         <Octicon symbol={octicons.chevronRight} />
       </button>
     )
+  }
+
+  private onLegacyStashButtonClicked = () => {
+    const { isShowingStashEntry, dispatcher, repository } = this.props
+
+    if (isShowingStashEntry) {
+      dispatcher.selectWorkingDirectoryFiles(repository)
+      dispatcher.incrementMetric('noActionTakenOnStashCount')
+    } else {
+      dispatcher.selectStashedFile(repository)
+      dispatcher.incrementMetric('stashViewCount')
+    }
   }
 
   private onChangedFileDoubleClick = (item: IChangesListItem) => {

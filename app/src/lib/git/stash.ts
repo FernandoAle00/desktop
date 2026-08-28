@@ -26,9 +26,33 @@ export const DesktopStashEntryMarker = '!!GitHub_Desktop'
  */
 const desktopStashEntryMessageRe = /!!GitHub_Desktop<(.+)>$/
 
+/**
+ * Git prefixes stash messages with `On <branch>: ` or `WIP on <branch>: `.
+ * Captures the branch name so CLI-created stashes still have an origin.
+ */
+const stashBranchMessageRe = /^(?:WIP on|On) (.+): /
+
+/** A stash entry plus the fields the stash list UI needs to render a row. */
+export interface IStashListEntry extends IStashEntry {
+  /** Message shown in the list, with the `On <branch>:` prefix stripped. */
+  readonly message: string
+
+  /** Unix timestamp (seconds) of the stash commit. */
+  readonly committerTime: number
+
+  /** True when Desktop created this stash via the magic-marker message. */
+  readonly isDesktopEntry: boolean
+}
+
 type StashResult = {
   /** The stash entries created by Desktop */
   readonly desktopEntries: ReadonlyArray<IStashEntry>
+
+  /**
+   * Every stash in the repository, Desktop-created and otherwise,
+   * in the default LIFO order of `git stash list`.
+   */
+  readonly entries: ReadonlyArray<IStashListEntry>
 
   /**
    * The total amount of stash entries,
@@ -49,6 +73,7 @@ export async function getStashes(repository: Repository): Promise<StashResult> {
     message: '%gs',
     tree: '%T',
     parents: '%P',
+    committerTime: '%ct',
   })
 
   const result = await git(
@@ -61,30 +86,51 @@ export async function getStashes(repository: Repository): Promise<StashResult> {
   // There's no refs/stashes reflog in the repository or it's not
   // even a repository. In either case we don't care
   if (result.exitCode === 128) {
-    return { desktopEntries: [], stashEntryCount: 0 }
+    return { desktopEntries: [], entries: [], stashEntryCount: 0 }
   }
 
   const desktopEntries: Array<IStashEntry> = []
+  const entries: Array<IStashListEntry> = []
   const files: StashedFileChanges = { kind: StashedChangesLoadStates.NotLoaded }
 
-  const entries = parse(result.stdout)
+  const parsed = parse(result.stdout)
 
-  for (const { name, message, stashSha, tree, parents } of entries) {
-    const branchName = extractBranchFromMessage(message)
+  for (const {
+    name,
+    message,
+    stashSha,
+    tree,
+    parents,
+    committerTime,
+  } of parsed) {
+    if (stashSha.length === 0) {
+      continue
+    }
+    const isDesktopEntry = desktopStashEntryMessageRe.test(message)
+    const desktopBranch = extractBranchFromMessage(message)
+    const branchName =
+      desktopBranch ?? extractCliBranchFromMessage(message) ?? ''
 
-    if (branchName !== null) {
-      desktopEntries.push({
-        name,
-        stashSha,
-        branchName,
-        tree,
-        parents: parents.length > 0 ? parents.split(' ') : [],
-        files,
-      })
+    const entry: IStashListEntry = {
+      name,
+      stashSha,
+      branchName,
+      tree,
+      parents: parents.length > 0 ? parents.split(' ') : [],
+      files,
+      message: getStashDisplayMessage(message, isDesktopEntry),
+      committerTime: parseInt(committerTime, 10) || 0,
+      isDesktopEntry,
+    }
+
+    entries.push(entry)
+
+    if (desktopBranch !== null) {
+      desktopEntries.push(entry)
     }
   }
 
-  return { desktopEntries, stashEntryCount: entries.length - 1 }
+  return { desktopEntries, entries, stashEntryCount: entries.length }
 }
 
 /**
@@ -206,9 +252,45 @@ export async function createDesktopStashEntry(
   return true
 }
 
+/**
+ * Create a stash with an optional message and untracked files.
+ *
+ * Unlike `createDesktopStashEntry` this does not use the Desktop magic marker,
+ * so the result shows up as a regular stash in the list.
+ */
+export async function createStash(
+  repository: Repository,
+  message: string,
+  includeUntracked: boolean
+): Promise<boolean> {
+  const args = ['stash', 'push']
+
+  if (includeUntracked) {
+    args.push('--include-untracked')
+  }
+
+  const trimmed = message.trim()
+  if (trimmed.length > 0) {
+    args.push('-m', trimmed)
+  }
+
+  const result = await git(args, repository.path, 'createStash')
+
+  if (result.stdout === 'No local changes to save\n') {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Looks up a stash by commit SHA rather than `stash@{n}`.
+ *
+ * Indices shift when an entry in the middle is dropped; the SHA does not.
+ */
 async function getStashEntryMatchingSha(repository: Repository, sha: string) {
   const stash = await getStashes(repository)
-  return stash.desktopEntries.find(e => e.stashSha === sha) || null
+  return stash.entries.find(e => e.stashSha === sha) || null
 }
 
 /**
@@ -270,9 +352,44 @@ export async function popStashEntry(
   }
 }
 
+/**
+ * Applies a stash by SHA without dropping it.
+ *
+ * Re-looks up the live `stash@{n}` name right before applying so that dropping
+ * a neighbor cannot make us apply the wrong entry.
+ */
+export async function applyStashEntry(
+  repository: Repository,
+  stashSha: string
+): Promise<void> {
+  const expectedErrors = new Set<DugiteError>([DugiteError.MergeConflicts])
+  const stashToApply = await getStashEntryMatchingSha(repository, stashSha)
+
+  if (stashToApply !== null) {
+    const args = ['stash', 'apply', '--quiet', stashToApply.name]
+    await git(args, repository.path, 'applyStashEntry', {
+      expectedErrors,
+    })
+  }
+}
+
 function extractBranchFromMessage(message: string): string | null {
   const match = desktopStashEntryMessageRe.exec(message)
   return match === null || match[1].length === 0 ? null : match[1]
+}
+
+function extractCliBranchFromMessage(message: string): string | null {
+  const match = stashBranchMessageRe.exec(message)
+  return match === null || match[1].length === 0 ? null : match[1]
+}
+
+function getStashDisplayMessage(message: string, isDesktopEntry: boolean) {
+  if (isDesktopEntry) {
+    return 'Stashed changes'
+  }
+
+  const stripped = message.replace(stashBranchMessageRe, '')
+  return stripped.length > 0 ? stripped : message
 }
 
 /** Get the files that were changed in the given stash commit */

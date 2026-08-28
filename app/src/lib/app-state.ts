@@ -50,6 +50,7 @@ import { IAccountRepositories } from './stores/api-repositories-store'
 import { ManualConflictResolution } from '../models/manual-conflict-resolution'
 import { Banner } from '../models/banner'
 import { IStashEntry } from '../models/stash-entry'
+import type { IStashListEntry } from './git/stash'
 import { TutorialStep } from '../models/tutorial-step'
 import { UncommittedChangesStrategy } from '../models/uncommitted-changes-strategy'
 import { DragElement } from '../models/drag-drop'
@@ -818,6 +819,12 @@ export type ChangesStashSelection = {
 
   /** Currently selected file's diff */
   readonly selectedStashedFileDiff: IDiff | null
+
+  /**
+   * SHA of the stash being viewed. Identifies the entry independently of
+   * `stash@{n}`, which shifts when a neighbor is dropped.
+   */
+  readonly selectedStashSha: string | null
 }
 
 export type ChangesSelection =
@@ -857,6 +864,11 @@ export interface IChangesState {
    * if no stash exists for the current branch.
    */
   readonly stashEntry: IStashEntry | null
+
+  /**
+   * Every stash in the repository (Desktop-created and CLI), newest first.
+   */
+  readonly stashEntries: ReadonlyArray<IStashListEntry>
 
   /**
    * The current selection state in the Changes view. Can be either

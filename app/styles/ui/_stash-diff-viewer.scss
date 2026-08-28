@@ -23,6 +23,8 @@
       display: flex;
       align-items: center;
       margin-top: var(--spacing);
+      flex-wrap: wrap;
+      gap: var(--spacing-half);
     }
 
     .button-group {

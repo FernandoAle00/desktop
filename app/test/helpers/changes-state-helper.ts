@@ -20,6 +20,7 @@ export function createState<K extends keyof IChangesState>(
     coAuthors: [],
     conflictState: null,
     stashEntry: null,
+    stashEntries: [],
     currentBranchProtected: false,
     currentRepoRulesInfo: new RepoRulesInfo(),
     fileListFilter: {

@@ -231,6 +231,115 @@
   }
 }
 
+.stash-list {
+  display: flex;
+  flex-direction: column;
+  border-top: var(--base-border);
+  background-color: var(--secondary-button-background);
+  flex-shrink: 0;
+
+  .stash-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-half) var(--spacing);
+    min-height: 29px;
+    gap: var(--spacing-half);
+
+    .stash-list-title {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary-color);
+      @include ellipsis;
+    }
+
+    .button-component {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--spacing-third);
+      flex-shrink: 0;
+    }
+  }
+
+  .stash-list-items {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .stash-list-item {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    padding: var(--spacing-half) var(--spacing);
+    gap: var(--spacing-half);
+    border: none;
+    border-top: var(--base-border);
+    background: transparent;
+    color: var(--text-color);
+    text-align: start;
+    font-family: var(--font-family-sans-serif);
+    font-size: var(--font-size);
+    cursor: pointer;
+    border-radius: 0;
+
+    &:hover,
+    &:focus {
+      background-color: var(--box-selected-background-color);
+    }
+
+    &.selected,
+    &.selected:hover {
+      color: var(--box-selected-active-text-color);
+      background-color: var(--box-selected-active-background-color);
+
+      .stash-list-item-icon {
+        fill: var(--box-selected-active-text-color);
+      }
+
+      .stash-list-item-meta,
+      .stash-list-item-badge {
+        color: var(--box-selected-active-text-color);
+        opacity: 0.85;
+      }
+    }
+  }
+
+  .stash-list-item-icon {
+    fill: var(--color-modified);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .stash-list-item-body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .stash-list-item-top {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+  }
+
+  .stash-list-item-message {
+    @include ellipsis;
+    flex: 1;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .stash-list-item-badge {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary-color);
+  }
+
+  .stash-list-item-meta {
+    @include ellipsis;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    margin-top: 1px;
+  }
+}
+
 .undo-enter {
   max-height: 0;
   overflow: hidden;

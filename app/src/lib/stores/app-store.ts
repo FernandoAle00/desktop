@@ -153,6 +153,7 @@ import {
   Foldout,
   FoldoutType,
   IAppState,
+  IChangesState,
   ICompareBranch,
   ICompareFormUpdate,
   ICompareToBranch,
@@ -316,10 +317,15 @@ import { Banner, BannerType } from '../../models/banner'
 import { ComputedAction } from '../../models/computed-action'
 import {
   createDesktopStashEntry,
+  createStash,
   getLastDesktopStashEntryForBranch,
   popStashEntry,
   dropDesktopStashEntry,
   moveStashEntry,
+  applyStashEntry,
+  getStashes,
+  getStashedFiles,
+  IStashListEntry,
 } from '../git/stash'
 import {
   UncommittedChangesStrategy,
@@ -1433,11 +1439,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
       const stashEntry = gitStore.currentBranchStashEntry
 
       // Figure out what selection changes we need to make as a result of this
-      // change.
+      // change. stashEntry is still the Desktop stash for the current branch;
+      // a CLI stash being viewed lives on selection.selectedStashSha.
       if (state.selection.kind === ChangesSelectionKind.Stash) {
-        if (state.stashEntry !== null) {
+        const viewedSha =
+          state.selection.selectedStashSha ?? state.stashEntry?.stashSha ?? null
+        const viewingDesktopStash =
+          state.stashEntry !== null && viewedSha === state.stashEntry.stashSha
+
+        if (viewingDesktopStash) {
           if (stashEntry === null) {
-            // We're showing a stash now and the stash entry has just disappeared
+            // We're showing the Desktop stash and it has just disappeared
             // so we need to switch back over to the working directory.
             selectWorkingDirectory = true
           } else if (state.stashEntry.stashSha !== stashEntry.stashSha) {
@@ -3714,17 +3726,33 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }))
     this.repositoryStateCache.updateChangesState(repository, state => {
       let selectedStashedFile: CommittedFileChange | null = null
-      const { stashEntry, selection } = state
+      const { stashEntry, stashEntries, selection } = state
 
       const currentlySelectedFile =
         selection.kind === ChangesSelectionKind.Stash
           ? selection.selectedStashedFile
           : null
 
+      const selectedStashSha =
+        selection.kind === ChangesSelectionKind.Stash &&
+        selection.selectedStashSha !== null
+          ? selection.selectedStashSha
+          : stashEntry?.stashSha ?? stashEntries[0]?.stashSha ?? null
+
+      const viewedStash = this.getViewedStashEntry({
+        ...state,
+        selection: {
+          kind: ChangesSelectionKind.Stash,
+          selectedStashedFile: currentlySelectedFile,
+          selectedStashedFileDiff: null,
+          selectedStashSha,
+        },
+      })
+
       const currentFiles =
-        stashEntry !== null &&
-        stashEntry.files.kind === StashedChangesLoadStates.Loaded
-          ? stashEntry.files.files
+        viewedStash !== null &&
+        viewedStash.files.kind === StashedChangesLoadStates.Loaded
+          ? viewedStash.files.files
           : []
 
       if (file === undefined) {
@@ -3755,6 +3783,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
           kind: ChangesSelectionKind.Stash,
           selectedStashedFile,
           selectedStashedFileDiff: null,
+          selectedStashSha,
         },
       }
     })
@@ -3772,6 +3801,61 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
   }
 
+  /**
+   * Show a specific stash in the stash diff viewer, identified by SHA.
+   *
+   * Note: This shouldn't be called directly. See `Dispatcher`.
+   */
+  public async _selectStashEntry(
+    repository: Repository,
+    stash: IStashEntry
+  ): Promise<void> {
+    this.repositoryStateCache.update(repository, () => ({
+      selectedSection: RepositorySectionTab.Changes,
+    }))
+    this.repositoryStateCache.updateChangesState(repository, () => ({
+      selection: {
+        kind: ChangesSelectionKind.Stash,
+        selectedStashedFile: null,
+        selectedStashedFileDiff: null,
+        selectedStashSha: stash.stashSha,
+      },
+    }))
+    this.emitUpdate()
+    await this._selectStashedFile(repository)
+  }
+
+  private getViewedStashEntry(changesState: IChangesState): IStashEntry | null {
+    const { stashEntry, stashEntries, selection } = changesState
+    if (selection.kind !== ChangesSelectionKind.Stash) {
+      return null
+    }
+
+    const sha = selection.selectedStashSha ?? stashEntry?.stashSha ?? null
+    if (sha === null) {
+      return stashEntry
+    }
+
+    const fromList = stashEntries.find(e => e.stashSha === sha)
+    if (fromList !== undefined) {
+      if (
+        fromList.files.kind !== StashedChangesLoadStates.Loaded &&
+        stashEntry !== null &&
+        stashEntry.stashSha === sha &&
+        stashEntry.files.kind === StashedChangesLoadStates.Loaded
+      ) {
+        return { ...fromList, files: stashEntry.files }
+      }
+      return fromList
+    }
+
+    if (stashEntry !== null && stashEntry.stashSha === sha) {
+      return stashEntry
+    }
+
+    return stashEntry
+  }
+
   private async updateChangesStashDiff(repository: Repository) {
     const stateBeforeLoad = this.repositoryStateCache.get(repository)
     const changesStateBeforeLoad = stateBeforeLoad.changesState
@@ -3781,10 +3865,37 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return
     }
 
-    const stashEntry = changesStateBeforeLoad.stashEntry
+    let stashEntry = this.getViewedStashEntry(changesStateBeforeLoad)
 
     if (stashEntry === null) {
       return
+    }
+
+    if (stashEntry.files.kind !== StashedChangesLoadStates.Loaded) {
+      const stashSha = stashEntry.stashSha
+      try {
+        const files = await getStashedFiles(repository, stashSha)
+        this.repositoryStateCache.updateChangesState(repository, state => ({
+          stashEntries: state.stashEntries.map(e =>
+            e.stashSha === stashSha
+              ? {
+                  ...e,
+                  files: { kind: StashedChangesLoadStates.Loaded, files },
+                }
+              : e
+          ),
+        }))
+        stashEntry = {
+          ...stashEntry,
+          files: { kind: StashedChangesLoadStates.Loaded, files },
+        }
+      } catch (e) {
+        log.warn(
+          `[updateChangesStashDiff] failed to load files for stash ${stashEntry.stashSha}`,
+          e
+        )
+        return
+      }
     }
 
     let file = selectionBeforeLoad.selectedStashedFile
@@ -3798,13 +3909,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     if (file === null) {
-      this.repositoryStateCache.updateChangesState(repository, () => ({
-        selection: {
-          kind: ChangesSelectionKind.Stash,
-          selectedStashedFile: null,
-          selectedStashedFileDiff: null,
-        },
-      }))
+      this.repositoryStateCache.updateChangesState(repository, state => {
+        const selectedStashSha =
+          state.selection.kind === ChangesSelectionKind.Stash
+            ? state.selection.selectedStashSha
+            : selectionBeforeLoad.selectedStashSha
+        return {
+          selection: {
+            kind: ChangesSelectionKind.Stash,
+            selectedStashedFile: null,
+            selectedStashedFileDiff: null,
+            selectedStashSha,
+          },
+        }
+      })
       this.emitUpdate()
       return
     }
@@ -3828,6 +3946,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         kind: ChangesSelectionKind.Stash,
         selectedStashedFile: file,
         selectedStashedFileDiff: diff,
+        selectedStashSha: selectionBeforeLoad.selectedStashSha,
       },
     }))
     this.emitUpdate()
@@ -4275,6 +4394,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     await Promise.all([
       gitStore.updateLastFetched(),
       gitStore.loadStashEntries(),
+      this.loadAllStashEntries(repository),
       this._refreshAuthor(repository),
       this._refreshWorktrees(repository),
       refreshSectionPromise,
@@ -9058,6 +9178,44 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _applyStashEntry(
+    repository: Repository,
+    stashEntry: IStashEntry
+  ) {
+    await applyStashEntry(repository, stashEntry.stashSha)
+    log.info(
+      `[AppStore. _applyStashEntry] applied stash with commit id ${stashEntry.stashSha}`
+    )
+
+    await this._refreshRepository(repository)
+    this._hideStashedChanges(repository)
+  }
+
+  /**
+   * Create a user-authored stash (no Desktop magic marker) from the
+   * Changes tab.
+   *
+   * Note: This shouldn't be called directly. See `Dispatcher`.
+   */
+  public async _createStash(
+    repository: Repository,
+    message: string,
+    includeUntracked: boolean
+  ): Promise<boolean> {
+    const gitStore = this.gitStoreCache.get(repository)
+    const created = await gitStore.performFailableOperation(() =>
+      createStash(repository, message, includeUntracked)
+    )
+
+    if (created === true) {
+      await this._refreshRepository(repository)
+      return true
+    }
+
+    return false
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _dropStashEntry(
     repository: Repository,
     stashEntry: IStashEntry
@@ -9072,6 +9230,94 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.statsStore.increment('stashDiscardCount')
     await gitStore.loadStashEntries()
+    await this.loadAllStashEntries(repository)
+  }
+
+  /**
+   * Load every stash in the repository into changes state.
+   * Reuses already-loaded file lists when the SHA has not changed.
+   */
+  private async loadAllStashEntries(repository: Repository): Promise<void> {
+    const { entries } = await getStashes(repository)
+    const { changesState } = this.repositoryStateCache.get(repository)
+    const existingBySha = new Map(
+      changesState.stashEntries.map(e => [e.stashSha, e])
+    )
+
+    const merged: Array<IStashListEntry> = entries.map(entry => {
+      const existing = existingBySha.get(entry.stashSha)
+      if (
+        existing !== undefined &&
+        existing.files.kind === StashedChangesLoadStates.Loaded
+      ) {
+        return { ...entry, files: existing.files }
+      }
+
+      if (
+        changesState.stashEntry !== null &&
+        changesState.stashEntry.stashSha === entry.stashSha &&
+        changesState.stashEntry.files.kind === StashedChangesLoadStates.Loaded
+      ) {
+        return { ...entry, files: changesState.stashEntry.files }
+      }
+
+      return entry
+    })
+
+    this.repositoryStateCache.updateChangesState(repository, () => ({
+      stashEntries: merged,
+    }))
+
+    const after = this.repositoryStateCache.get(repository).changesState
+    const viewedSha =
+      after.selection.kind === ChangesSelectionKind.Stash
+        ? after.selection.selectedStashSha
+        : null
+    if (viewedSha !== null && !merged.some(e => e.stashSha === viewedSha)) {
+      this._hideStashedChanges(repository)
+    } else {
+      this.emitUpdate()
+    }
+
+    await this.loadFilesForStashEntries(repository, merged)
+  }
+
+  private async loadFilesForStashEntries(
+    repository: Repository,
+    entries: ReadonlyArray<IStashListEntry>
+  ): Promise<void> {
+    const updated = await Promise.all(
+      entries.map(async entry => {
+        if (entry.files.kind === StashedChangesLoadStates.Loaded) {
+          return entry
+        }
+
+        try {
+          const files = await getStashedFiles(repository, entry.stashSha)
+          return {
+            ...entry,
+            files: {
+              kind: StashedChangesLoadStates.Loaded as const,
+              files,
+            },
+          }
+        } catch (e) {
+          log.warn(
+            `[loadFilesForStashEntries] failed to load files for stash ${entry.stashSha}`,
+            e
+          )
+          return entry
+        }
+      })
+    )
+
+    this.repositoryStateCache.updateChangesState(repository, state => ({
+      stashEntries: state.stashEntries.map(e => {
+        const loaded = updated.find(u => u.stashSha === e.stashSha)
+        return loaded ?? e
+      }),
+    }))
+    this.emitUpdate()
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
