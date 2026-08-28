@@ -46,7 +46,9 @@ export class StashList extends React.Component<IStashListProps> {
           <span className="stash-list-title">
             {stashEntries.length === 0
               ? 'Stashes'
-              : `${stashEntries.length} stash${plural(stashEntries.length)}`}
+              : `${stashEntries.length} ${
+                  stashEntries.length === 1 ? 'stash' : 'stashes'
+                }`}
           </span>
           <Button
             size="small"
