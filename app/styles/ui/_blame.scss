@@ -1,7 +1,16 @@
 #blame {
   width: 900px;
-  max-width: calc(100vw - var(--spacing-double) * 4);
   height: 80vh;
+
+  // A blamed file is as wide as its longest line and as tall as the file, and
+  // neither is known in advance, so the dialog can be dragged from its bottom
+  // right corner. `overflow` has to be anything but visible for `resize` to
+  // apply, and the dialog element sets `overflow: unset` by default.
+  resize: both;
+  overflow: hidden;
+  min-width: 480px;
+  min-height: 240px;
+  max-width: calc(100vw - var(--spacing-double) * 4);
   max-height: calc(100vh - var(--spacing-double) * 4);
 
   .dialog-content.blame-content {
@@ -11,6 +20,32 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .blame-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: var(--base-border);
+
+    .select-component {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--spacing-half);
+      margin: 0;
+
+      label {
+        margin: 0;
+        color: var(--text-secondary-color);
+      }
+
+      select {
+        max-width: 320px;
+      }
+    }
   }
 
   .blame-message {
@@ -73,6 +108,12 @@
 
     &.odd {
       background: var(--box-alt-background-color);
+    }
+
+    // Lines by someone other than the author being singled out. They stay
+    // readable, just quiet, so the picked lines can be read in context.
+    &.dimmed {
+      opacity: 0.35;
     }
   }
 

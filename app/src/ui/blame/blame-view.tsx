@@ -7,6 +7,7 @@ import { IMenuItem } from '../../lib/menu-item'
 import { Dialog, DialogContent, DefaultDialogFooter } from '../dialog'
 import { List } from '../lib/list'
 import { Loading } from '../lib/loading'
+import { Select } from '../lib/select'
 
 const RowHeight = 20
 const ZeroSha = /^0+$/
@@ -18,6 +19,18 @@ interface IBlameViewProps {
   readonly onDismissed: () => void
 }
 
+/** One of the people who wrote lines that survive in the file today. */
+interface IBlameAuthor {
+  /** Identity of the author, lowercased email where there is one */
+  readonly key: string
+  readonly name: string
+  /** How many of the file's current lines they last touched */
+  readonly lineCount: number
+}
+
+/** The value the author select carries when nothing is singled out */
+const AllAuthors = ''
+
 type BlameViewState =
   | { readonly kind: 'loading' }
   | {
@@ -25,6 +38,9 @@ type BlameViewState =
       readonly lines: ReadonlyArray<IBlameLine>
       readonly blockIndex: ReadonlyArray<number>
       readonly selectedRow: number
+      readonly authors: ReadonlyArray<IBlameAuthor>
+      /** `AllAuthors`, or the key of the author whose lines are singled out */
+      readonly selectedAuthor: string
     }
   | { readonly kind: 'binary' }
   | { readonly kind: 'unavailable' }
@@ -50,6 +66,43 @@ function relativeAuthorDate(date: Date): string {
     return ''
   }
   return formatRelative(date.getTime() - Date.now())
+}
+
+/**
+ * Identity for an author. Emails are compared lowercased because the same
+ * person commits as `Name@host` and `name@host` over the years; falls back to
+ * the name when a commit carries no email at all.
+ */
+function authorKey(line: IBlameLine): string {
+  return line.authorEmail.length > 0
+    ? line.authorEmail.toLowerCase()
+    : line.authorName
+}
+
+/**
+ * The authors of the lines that are still in the file, with how many lines
+ * each of them last touched, most lines first. This is who actually owns the
+ * file today, which is not the same as who has committed to it.
+ */
+function computeAuthors(
+  lines: ReadonlyArray<IBlameLine>
+): ReadonlyArray<IBlameAuthor> {
+  const byKey = new Map<string, { name: string; lineCount: number }>()
+
+  for (const line of lines) {
+    const key = authorKey(line)
+    const existing = byKey.get(key)
+
+    if (existing === undefined) {
+      byKey.set(key, { name: line.authorName, lineCount: 1 })
+    } else {
+      existing.lineCount++
+    }
+  }
+
+  return [...byKey.entries()]
+    .map(([key, { name, lineCount }]) => ({ key, name, lineCount }))
+    .sort((a, b) => b.lineCount - a.lineCount || a.name.localeCompare(b.name))
 }
 
 function computeBlockIndex(
@@ -113,6 +166,8 @@ export class BlameView extends React.Component<
         lines: result.lines,
         blockIndex: computeBlockIndex(result.lines),
         selectedRow: -1,
+        authors: computeAuthors(result.lines),
+        selectedAuthor: AllAuthors,
       })
       return
     }
@@ -132,6 +187,7 @@ export class BlameView extends React.Component<
         loading={loading}
       >
         <DialogContent className="blame-content">
+          {this.renderAuthorFilter()}
           {this.renderBody()}
         </DialogContent>
         <DefaultDialogFooter />
@@ -195,6 +251,50 @@ export class BlameView extends React.Component<
     )
   }
 
+  /**
+   * The author picker. Singling out an author dims everyone else's lines
+   * rather than hiding them: a file with two thirds of its lines removed is
+   * no longer code you can read, and the point of blame is reading the line
+   * in its surroundings.
+   */
+  private renderAuthorFilter(): JSX.Element | null {
+    if (this.state.kind !== 'ready') {
+      return null
+    }
+
+    const { authors, lines, selectedAuthor } = this.state
+
+    if (authors.length < 2) {
+      return null
+    }
+
+    return (
+      <div className="blame-toolbar">
+        <Select
+          label="Author"
+          value={selectedAuthor}
+          onChange={this.onSelectedAuthorChanged}
+        >
+          <option value={AllAuthors}>All authors ({lines.length} lines)</option>
+          {authors.map(a => (
+            <option key={a.key} value={a.key}>
+              {a.name} ({a.lineCount} lines)
+            </option>
+          ))}
+        </Select>
+      </div>
+    )
+  }
+
+  private onSelectedAuthorChanged = (
+    event: React.FormEvent<HTMLSelectElement>
+  ) => {
+    if (this.state.kind !== 'ready') {
+      return
+    }
+    this.setState({ ...this.state, selectedAuthor: event.currentTarget.value })
+  }
+
   private onSelectedRowChanged = (row: number) => {
     if (this.state.kind !== 'ready') {
       return
@@ -215,15 +315,18 @@ export class BlameView extends React.Component<
       return null
     }
 
-    const { lines, blockIndex } = this.state
+    const { lines, blockIndex, selectedAuthor } = this.state
     const line = lines[row]
     const isGroupStart = row === 0 || lines[row - 1].sha !== line.sha
     const odd = blockIndex[row] % 2 === 1
+    const dimmed =
+      selectedAuthor !== AllAuthors && authorKey(line) !== selectedAuthor
 
     return (
       <div
         className={classNames('blame-row', {
           odd,
+          dimmed,
           'group-start': isGroupStart,
         })}
       >
