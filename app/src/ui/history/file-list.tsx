@@ -6,7 +6,6 @@ import { IMenuItem } from '../../lib/menu-item'
 import { ClickSource, List } from '../lib/list'
 import { getBlameMenuItem } from '../blame'
 import { CommittedFileItem } from './committed-file-item'
-import { IMenuItem } from '../../lib/menu-item'
 
 interface IFileListProps {
   readonly files: ReadonlyArray<CommittedFileChange>

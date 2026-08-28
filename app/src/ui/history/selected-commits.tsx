@@ -26,7 +26,6 @@ import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList, getViewFileHistoryMenuItem } from './file-list'
-import { PopupType } from '../../models/popup'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
