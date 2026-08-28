@@ -7,6 +7,17 @@ import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { Button } from '../lib/button'
 import { plural } from '../lib/plural'
+import { getBoolean, setBoolean } from '../../lib/local-storage'
+
+/**
+ * The list shares the sidebar with the changed files and the commit message,
+ * so whether it is collapsed is worth remembering between sessions.
+ */
+const StashListCollapsedKey = 'stash-list-collapsed'
+
+interface IStashListState {
+  readonly isCollapsed: boolean
+}
 
 interface IStashListProps {
   readonly stashEntries: ReadonlyArray<IStashListEntry>
@@ -32,24 +43,60 @@ const StashIcon = {
 }
 
 /** Sidebar list of every stash in the repository. */
-export class StashList extends React.Component<IStashListProps> {
+export class StashList extends React.Component<
+  IStashListProps,
+  IStashListState
+> {
+  public constructor(props: IStashListProps) {
+    super(props)
+    this.state = {
+      isCollapsed: getBoolean(StashListCollapsedKey, false),
+    }
+  }
+
+  private onToggleCollapsed = () => {
+    const isCollapsed = !this.state.isCollapsed
+    setBoolean(StashListCollapsedKey, isCollapsed)
+    this.setState({ isCollapsed })
+  }
+
   public render() {
     const { stashEntries, canCreateStash } = this.props
+    const { isCollapsed } = this.state
 
     if (stashEntries.length === 0 && !canCreateStash) {
       return null
     }
 
+    const title =
+      stashEntries.length === 0
+        ? 'Stashes'
+        : `${stashEntries.length} ${
+            stashEntries.length === 1 ? 'stash' : 'stashes'
+          }`
+
     return (
-      <div className="stash-list">
+      <div className={classNames('stash-list', { collapsed: isCollapsed })}>
         <div className="stash-list-header">
-          <span className="stash-list-title">
-            {stashEntries.length === 0
-              ? 'Stashes'
-              : `${stashEntries.length} ${
-                  stashEntries.length === 1 ? 'stash' : 'stashes'
-                }`}
-          </span>
+          <button
+            type="button"
+            className="stash-list-toggle"
+            onClick={this.onToggleCollapsed}
+            aria-expanded={!isCollapsed}
+            aria-label={
+              isCollapsed
+                ? `Expand stashes, ${title}`
+                : `Collapse stashes, ${title}`
+            }
+          >
+            <Octicon
+              className="stash-list-chevron"
+              symbol={
+                isCollapsed ? octicons.chevronRight : octicons.chevronDown
+              }
+            />
+            <span className="stash-list-title">{title}</span>
+          </button>
           <Button
             size="small"
             onClick={this.props.onCreateStash}
@@ -66,7 +113,7 @@ export class StashList extends React.Component<IStashListProps> {
             Stash
           </Button>
         </div>
-        {stashEntries.length > 0 ? (
+        {stashEntries.length > 0 && !isCollapsed ? (
           <div className="stash-list-items" role="list">
             {stashEntries.map(this.renderItem)}
           </div>

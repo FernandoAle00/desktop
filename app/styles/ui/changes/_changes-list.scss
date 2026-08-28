@@ -246,6 +246,38 @@
     min-height: 29px;
     gap: var(--spacing-half);
 
+    // The whole title is the collapse target; the Stash button sits outside it
+    // so pressing it never folds the list away.
+    .stash-list-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-third);
+      flex: 1;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+
+      &:hover .stash-list-title {
+        color: var(--text-color);
+      }
+
+      &:focus-visible {
+        outline-offset: 1px;
+      }
+    }
+
+    .stash-list-chevron {
+      flex-shrink: 0;
+      width: 12px;
+      color: var(--text-secondary-color);
+    }
+
     .stash-list-title {
       font-size: var(--font-size-sm);
       color: var(--text-secondary-color);
