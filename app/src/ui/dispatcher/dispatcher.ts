@@ -23,6 +23,7 @@ import {
   MultiCommitOperationConflictState,
   IMultiCommitOperationState,
   CommitOptions,
+  CommitSearchMode,
 } from '../../lib/app-state'
 import { assertNever, fatalError } from '../../lib/fatal-error'
 import {
@@ -246,14 +247,16 @@ export class Dispatcher {
   }
 
   /**
-   * Narrow the history down to the commits whose message matches `text`, or
-   * restore the full history when `text` is empty.
+   * Narrow the history down to the commits that match `text` under `mode`, or
+   * restore the full history when `text` is empty. Changing `mode` with the
+   * same text runs the search again.
    */
   public setHistoryCommitFilter(
     repository: Repository,
-    text: string
+    text: string,
+    mode: CommitSearchMode
   ): Promise<void> {
-    return this.appStore._setHistoryCommitFilter(repository, text)
+    return this.appStore._setHistoryCommitFilter(repository, text, mode)
   }
 
   /** Load the changed files for the current history selection. */

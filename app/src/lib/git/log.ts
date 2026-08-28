@@ -115,14 +115,18 @@ const isCopyOrRename = (
   status.kind === AppFileStatusKind.Renamed
 
 /**
- * Get the repository's commits using `revisionRange` and limited to `limit`
+ * Get the repository's commits using `revisionRange` and limited to `limit`.
+ *
+ * `pathspecs` are appended after the `--` separator so Git treats them as
+ * paths (including names with spaces or leading dashes) rather than revisions.
  */
 export async function getCommits(
   repository: Repository,
   revisionRange?: string,
   limit?: number,
   skip?: number,
-  additionalArgs: ReadonlyArray<string> = []
+  additionalArgs: ReadonlyArray<string> = [],
+  pathspecs: ReadonlyArray<string> = []
 ): Promise<ReadonlyArray<Commit>> {
   const { formatArgs, parse } = createLogParser({
     sha: '%H', // SHA
@@ -160,7 +164,8 @@ export async function getCommits(
     '--no-show-signature',
     '--no-color',
     ...additionalArgs,
-    '--'
+    '--',
+    ...pathspecs
   )
   const result = await git(args, repository.path, 'getCommits', {
     successExitCodes: new Set([0, 128]),

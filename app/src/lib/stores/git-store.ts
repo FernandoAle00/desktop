@@ -215,12 +215,14 @@ export class GitStore extends BaseStore {
   /** Load a batch of commits from the repository, using a given commitish object as the starting point */
   /**
    * Load a batch of commits reachable from `commitish`, optionally narrowed
-   * down by `additionalArgs` (e.g. `--grep=` when searching the history).
+   * down by `additionalArgs` (e.g. `--grep=` when searching the history) and
+   * `pathspecs` (paths after `--`, used when searching by file).
    */
   public async loadCommitBatch(
     commitish: string,
     skip: number,
-    additionalArgs: ReadonlyArray<string> = []
+    additionalArgs: ReadonlyArray<string> = [],
+    pathspecs: ReadonlyArray<string> = []
   ) {
     if (this.requestsInFight.has(LoadingHistoryRequestKey)) {
       return null
@@ -228,7 +230,7 @@ export class GitStore extends BaseStore {
 
     const requestKey = `history/compare/${commitish}/skip/${skip}/args/${additionalArgs.join(
       ' '
-    )}`
+    )}/paths/${pathspecs.join('\0')}`
     if (this.requestsInFight.has(requestKey)) {
       return null
     }
@@ -241,7 +243,8 @@ export class GitStore extends BaseStore {
         commitish,
         CommitBatchSize,
         skip,
-        additionalArgs
+        additionalArgs,
+        pathspecs
       )
     )
 

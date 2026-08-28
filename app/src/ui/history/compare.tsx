@@ -7,6 +7,7 @@ import {
   ICompareBranch,
   ComparisonMode,
   IDisplayHistory,
+  CommitSearchMode,
 } from '../../lib/app-state'
 import { CommitList } from './commit-list'
 import { Repository } from '../../models/repository'
@@ -19,6 +20,7 @@ import { IBranchListItem } from '../branches/group-branches'
 import { TabBar } from '../tab-bar'
 import { CompareBranchListItem } from './compare-branch-list-item'
 import { FancyTextBox } from '../lib/fancy-text-box'
+import { Octicon, OcticonSymbol } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { SelectionSource } from '../lib/filter-list'
 import { IMatches } from '../../lib/fuzzy-find'
@@ -34,6 +36,9 @@ import { KeyboardInsertionData } from '../lib/list'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
 import { formatNumber } from '../../lib/format-number'
+import { Button } from '../lib/button'
+import { IMenuItem, showContextualMenu } from '../../lib/menu-item'
+import { assertNever } from '../../lib/fatal-error'
 
 interface ICompareSidebarProps {
   readonly repository: Repository
@@ -226,13 +231,26 @@ export class CompareSidebar extends React.Component<
   }
 
   private renderCommitFilter() {
+    const mode = this.props.compareState.commitSearchMode
+    const placeholder = getCommitFilterPlaceholder(mode)
+
     return (
       <div className="commit-filter">
+        <Button
+          className="commit-search-mode-button"
+          onClick={this.onCommitSearchModeButtonClick}
+          tooltip={getCommitSearchModeLabel(mode)}
+          ariaLabel="Search mode"
+          ariaHaspopup="menu"
+        >
+          <Octicon symbol={getCommitSearchModeIcon(mode)} />
+          <Octicon symbol={octicons.triangleDown} height={10} />
+        </Button>
         <FancyTextBox
-          ariaLabel="Search commits by message"
+          ariaLabel={placeholder}
           symbol={octicons.search}
           displayClearButton={true}
-          placeholder="Search commits"
+          placeholder={placeholder}
           value={this.state.commitFilterText}
           onRef={this.onCommitFilterTextBoxRef}
           onValueChanged={this.onCommitFilterTextChanged}
@@ -243,6 +261,52 @@ export class CompareSidebar extends React.Component<
     )
   }
 
+  private onCommitSearchModeButtonClick = () => {
+    const current = this.props.compareState.commitSearchMode
+    const items: IMenuItem[] = [
+      {
+        label: __DARWIN__ ? 'Commit Message' : 'Commit message',
+        type: 'checkbox',
+        checked: current === CommitSearchMode.Message,
+        action: () => this.onCommitSearchModeChanged(CommitSearchMode.Message),
+      },
+      {
+        label: 'Author',
+        type: 'checkbox',
+        checked: current === CommitSearchMode.Author,
+        action: () => this.onCommitSearchModeChanged(CommitSearchMode.Author),
+      },
+      {
+        label: 'File',
+        type: 'checkbox',
+        checked: current === CommitSearchMode.File,
+        action: () => this.onCommitSearchModeChanged(CommitSearchMode.File),
+      },
+      {
+        label: __DARWIN__ ? 'Diff Content' : 'Diff content',
+        type: 'checkbox',
+        checked: current === CommitSearchMode.Content,
+        action: () => this.onCommitSearchModeChanged(CommitSearchMode.Content),
+      },
+    ]
+
+    showContextualMenu(items)
+  }
+
+  private onCommitSearchModeChanged = (mode: CommitSearchMode) => {
+    if (mode === this.props.compareState.commitSearchMode) {
+      return
+    }
+
+    // Drop a pending text search so it can't land under the previous mode.
+    this.commitFilterScheduler.clear()
+    this.props.dispatcher.setHistoryCommitFilter(
+      this.props.repository,
+      this.state.commitFilterText,
+      mode
+    )
+  }
+
   private onCommitFilterTextBoxRef = (textbox: TextBox) => {
     this.commitFilterTextbox = textbox
   }
@@ -250,14 +314,22 @@ export class CompareSidebar extends React.Component<
   private onCommitFilterTextChanged = (text: string) => {
     this.setState({ commitFilterText: text })
     this.commitFilterScheduler.queue(() =>
-      this.props.dispatcher.setHistoryCommitFilter(this.props.repository, text)
+      this.props.dispatcher.setHistoryCommitFilter(
+        this.props.repository,
+        text,
+        this.props.compareState.commitSearchMode
+      )
     )
   }
 
   private onCommitFilterCleared = () => {
     this.commitFilterScheduler.clear()
     this.setState({ commitFilterText: '' })
-    this.props.dispatcher.setHistoryCommitFilter(this.props.repository, '')
+    this.props.dispatcher.setHistoryCommitFilter(
+      this.props.repository,
+      '',
+      this.props.compareState.commitSearchMode
+    )
   }
 
   private onCommitFilterKeyDown = (
@@ -290,13 +362,13 @@ export class CompareSidebar extends React.Component<
   private renderCommitList() {
     const { formState, commitSHAs } = this.props.compareState
 
-    const { commitFilterText } = this.props.compareState
+    const { commitFilterText, commitSearchMode } = this.props.compareState
 
     let emptyListMessage: string | JSX.Element
     if (formState.kind === HistoryTabMode.History) {
       emptyListMessage =
         commitFilterText.length > 0
-          ? `No commits match "${commitFilterText}"`
+          ? getCommitFilterEmptyMessage(commitSearchMode, commitFilterText)
           : 'No history'
     } else {
       const currentlyComparedBranchName = formState.comparisonBranch.name
@@ -816,6 +888,69 @@ function getPlaceholderText(state: ICompareState) {
       : 'Select branch to compare…'
   } else {
     return undefined
+  }
+}
+
+function getCommitFilterPlaceholder(mode: CommitSearchMode): string {
+  switch (mode) {
+    case CommitSearchMode.Message:
+      return 'Search commits'
+    case CommitSearchMode.Author:
+      return 'Search by author'
+    case CommitSearchMode.File:
+      return 'Search by file'
+    case CommitSearchMode.Content:
+      return 'Search in diffs'
+    default:
+      return assertNever(mode, `Unknown commit search mode: ${mode}`)
+  }
+}
+
+function getCommitSearchModeLabel(mode: CommitSearchMode): string {
+  switch (mode) {
+    case CommitSearchMode.Message:
+      return __DARWIN__ ? 'Commit Message' : 'Commit message'
+    case CommitSearchMode.Author:
+      return 'Author'
+    case CommitSearchMode.File:
+      return 'File'
+    case CommitSearchMode.Content:
+      return __DARWIN__ ? 'Diff Content' : 'Diff content'
+    default:
+      return assertNever(mode, `Unknown commit search mode: ${mode}`)
+  }
+}
+
+function getCommitSearchModeIcon(mode: CommitSearchMode): OcticonSymbol {
+  switch (mode) {
+    case CommitSearchMode.Message:
+      return octicons.comment
+    case CommitSearchMode.Author:
+      return octicons.person
+    case CommitSearchMode.File:
+      return octicons.file
+    case CommitSearchMode.Content:
+      return octicons.diff
+    default:
+      return assertNever(mode, `Unknown commit search mode: ${mode}`)
+  }
+}
+
+function getCommitFilterEmptyMessage(
+  mode: CommitSearchMode,
+  text: string
+): string {
+  switch (mode) {
+    case CommitSearchMode.Message:
+      return `No commits match "${text}"`
+    case CommitSearchMode.Author:
+      return `No commits by "${text}"`
+    case CommitSearchMode.File:
+      return `No commits touch "${text}"`
+    case CommitSearchMode.Content:
+      return `No commits add or remove "${text}"`
+    default:
+      return assertNever(mode, `Unknown commit search mode: ${mode}`)
   }
 }
 

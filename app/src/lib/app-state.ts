@@ -905,6 +905,16 @@ export enum ComparisonMode {
 }
 
 /**
+ * How the history search box interprets the text the user typed.
+ */
+export enum CommitSearchMode {
+  Message = 'Message',
+  Author = 'Author',
+  File = 'File',
+  Content = 'Content',
+}
+
+/**
  * The default comparison state is to display the history for the current
  * branch.
  */
@@ -950,9 +960,15 @@ export interface ICompareState {
 
   /**
    * The text entered into the history search box. When non-empty the history
-   * only shows commits whose message matches it.
+   * only shows commits that match it, using `commitSearchMode`.
    */
   readonly commitFilterText: string
+
+  /**
+   * Whether the history search matches commit messages, authors, file paths,
+   * or added/removed diff content.
+   */
+  readonly commitSearchMode: CommitSearchMode
 
   /** The SHAs of commits to highlight in the compare list */
   readonly shasToHighlight: ReadonlyArray<string>

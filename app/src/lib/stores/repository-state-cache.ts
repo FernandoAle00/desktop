@@ -9,6 +9,7 @@ import {
 import { Tip, TipState } from '../../models/tip'
 import {
   HistoryTabMode,
+  CommitSearchMode,
   IBranchesState,
   IChangesState,
   ICompareState,
@@ -416,6 +417,7 @@ function getInitialRepositoryState(): IRepositoryState {
       filterText: '',
       commitSHAs: [],
       commitFilterText: '',
+      commitSearchMode: CommitSearchMode.Message,
       shasToHighlight: [],
       branches: new Array<Branch>(),
       recentBranches: new Array<Branch>(),

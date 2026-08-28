@@ -172,6 +172,7 @@ import {
   IConstrainedValue,
   ICompareState,
   CommitOptions,
+  CommitSearchMode,
 } from '../app-state'
 import {
   findEditorOrDefault,
@@ -1822,6 +1823,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         commitSHAs: commits,
         filterText: '',
         commitFilterText: '',
+        commitSearchMode: CommitSearchMode.Message,
         showBranchList: false,
       }))
       this.updateOrSelectFirstCommit(repository, commits)
@@ -1957,17 +1959,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /**
    * This shouldn't be called directly. See `Dispatcher`.
    *
-   * Narrows the history down to the commits whose message matches `text`, or
-   * restores the full history when `text` is empty.
+   * Narrows the history down to the commits that match `text` under `mode`, or
+   * restores the full history when `text` is empty. Changing `mode` with the
+   * same text runs the search again.
    */
   public async _setHistoryCommitFilter(
     repository: Repository,
-    text: string
+    text: string,
+    mode: CommitSearchMode
   ): Promise<void> {
     const { compareState } = this.repositoryStateCache.get(repository)
 
     if (
-      compareState.commitFilterText === text ||
+      (compareState.commitFilterText === text &&
+        compareState.commitSearchMode === mode) ||
       compareState.formState.kind !== HistoryTabMode.History
     ) {
       return
@@ -1975,25 +1980,37 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.repositoryStateCache.updateCompareState(repository, () => ({
       commitFilterText: text,
+      commitSearchMode: mode,
     }))
     this.emitUpdate()
 
+    // Mode-only change with nothing typed: the placeholder/icon update is
+    // enough. Reloading HEAD would just fetch the same unfiltered history.
+    if (text.length === 0 && compareState.commitFilterText.length === 0) {
+      return
+    }
+
     const gitStore = this.gitStoreCache.get(repository)
+    const { additionalArgs, pathspecs } = commitFilterArgs(text, mode)
     const commits = await gitStore.loadCommitBatch(
       'HEAD',
       0,
-      commitMessageFilterArgs(text)
+      additionalArgs,
+      pathspecs
     )
 
     if (commits === null) {
       return
     }
 
-    // The user may have kept typing while we were loading, in which case this
-    // batch belongs to a search that's no longer on screen.
+    // The user may have kept typing or switched mode while we were loading, in
+    // which case this batch belongs to a search that's no longer on screen.
     const { compareState: currentState } =
       this.repositoryStateCache.get(repository)
-    if (currentState.commitFilterText !== text) {
+    if (
+      currentState.commitFilterText !== text ||
+      currentState.commitSearchMode !== mode
+    ) {
       return
     }
 
@@ -2012,15 +2029,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const { formState } = state.compareState
     if (formState.kind === HistoryTabMode.History) {
       const commits = state.compareState.commitSHAs
-      const { commitFilterText } = state.compareState
+      const { commitFilterText, commitSearchMode } = state.compareState
 
       const tip = state.branchesState.tip
 
       let newCommits: string[] | null = null
 
       // Prioritize pulling from the local commits if the last one we pulled is
-      // local. Local commits aren't filtered by message so we skip this when
-      // the user is searching the history.
+      // local. Local commits aren't filtered by the history search so we skip
+      // this when the user is searching.
       if (
         commitFilterText.length === 0 &&
         commits.length > 0 &&
@@ -2031,10 +2048,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
 
       if (!newCommits || newCommits.length === 0) {
+        const { additionalArgs, pathspecs } = commitFilterArgs(
+          commitFilterText,
+          commitSearchMode
+        )
         newCommits = await gitStore.loadCommitBatch(
           'HEAD',
           commits.length,
-          commitMessageFilterArgs(commitFilterText)
+          additionalArgs,
+          pathspecs
         )
       }
 
@@ -2043,7 +2065,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
 
       const { compareState } = this.repositoryStateCache.get(repository)
-      if (compareState.commitFilterText !== commitFilterText) {
+      if (
+        compareState.commitFilterText !== commitFilterText ||
+        compareState.commitSearchMode !== commitSearchMode
+      ) {
         return
       }
 
@@ -10772,21 +10797,72 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 }
 
+interface ICommitFilterGitArgs {
+  readonly additionalArgs: ReadonlyArray<string>
+  readonly pathspecs: ReadonlyArray<string>
+}
+
+const noCommitFilterArgs: ICommitFilterGitArgs = {
+  additionalArgs: [],
+  pathspecs: [],
+}
+
+/**
+ * The `git log` arguments that narrow the history down to commits matching
+ * `filterText` under `mode`. Empty text means no filtering at all.
+ *
+ * File searches are pathspecs and must go after `--` (see `getCommits`).
+ * Content search uses pickaxe (`-S`), which is already a literal string
+ * unless `--pickaxe-regex` is passed; `--fixed-strings` is a grep option
+ * and does not apply.
+ */
+function commitFilterArgs(
+  filterText: string,
+  mode: CommitSearchMode
+): ICommitFilterGitArgs {
+  if (filterText.length === 0) {
+    return noCommitFilterArgs
+  }
+
+  switch (mode) {
+    case CommitSearchMode.Message:
+      return {
+        additionalArgs: [
+          `--grep=${filterText}`,
+          '--fixed-strings',
+          '--regexp-ignore-case',
+        ],
+        pathspecs: [],
+      }
+    case CommitSearchMode.Author:
+      return {
+        additionalArgs: [
+          `--author=${filterText}`,
+          '--fixed-strings',
+          '--regexp-ignore-case',
+        ],
+        pathspecs: [],
+      }
+    case CommitSearchMode.File:
+      return {
+        additionalArgs: [],
+        pathspecs: [filterText],
+      }
+    case CommitSearchMode.Content:
+      return {
+        additionalArgs: [`-S${filterText}`, '--regexp-ignore-case'],
+        pathspecs: [],
+      }
+    default:
+      return assertNever(mode, `Unknown commit search mode: ${mode}`)
+  }
+}
+
 /**
  * Map the cached state of the compare view to an action
  * to perform which is then used to compute the compare
  * view contents.
  */
-/**
- * The `git log` arguments that narrow the history down to the commits whose
- * message contains `filterText`. Empty text means no filtering at all.
- */
-function commitMessageFilterArgs(filterText: string): ReadonlyArray<string> {
-  return filterText.length === 0
-    ? []
-    : [`--grep=${filterText}`, '--fixed-strings', '--regexp-ignore-case']
-}
-
 function getInitialAction(
   cachedState: IDisplayHistory | ICompareBranch
 ): CompareAction {
