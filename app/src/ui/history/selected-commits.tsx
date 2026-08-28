@@ -31,7 +31,10 @@ import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
 import { IChangesetData } from '../../lib/git'
-import { IConstrainedValue } from '../../lib/app-state'
+import {
+  IConstrainedValue,
+  isArbitraryCommitComparison,
+} from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
 import { pathExists } from '../../lib/path-exists'
 import { UnreachableCommitsTab } from './unreachable-commits-dialog'
@@ -40,6 +43,11 @@ import { DiffHeader } from '../diff/diff-header'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
 import { PopupType } from '../../models/popup'
+import { Button } from '../lib/button'
+import { Ref } from '../lib/ref'
+import { RichText } from '../lib/rich-text'
+import { Octicon } from '../octicons'
+import * as octicons from '../octicons/octicons.generated'
 
 interface ISelectedCommitsProps {
   readonly repository: Repository
@@ -201,6 +209,10 @@ export class SelectedCommits extends React.Component<
   }
 
   private renderCommitSummary(commits: ReadonlyArray<Commit>) {
+    if (isArbitraryCommitComparison(commits.length, this.props.isContiguous)) {
+      return this.renderCommitComparisonHeader(commits[0], commits[1])
+    }
+
     return (
       <ExpandableCommitSummary
         selectedCommits={commits}
@@ -215,6 +227,56 @@ export class SelectedCommits extends React.Component<
         accounts={this.props.accounts}
       />
     )
+  }
+
+  private renderCommitComparisonHeader(from: Commit, to: Commit) {
+    const title = __DARWIN__ ? 'Comparing Commits' : 'Comparing commits'
+    const clearLabel = __DARWIN__ ? 'Clear Comparison' : 'Clear comparison'
+
+    return (
+      <div className="commit-comparison-header">
+        <div className="commit-comparison-title-row">
+          <div className="commit-comparison-title">
+            <Octicon symbol={octicons.gitCompare} />
+            {title}
+          </div>
+          <Button onClick={this.onClearComparison} size="small">
+            {clearLabel}
+          </Button>
+        </div>
+        <p className="commit-comparison-direction">
+          Showing changes from <Ref>{from.shortSha}</Ref> to{' '}
+          <Ref>{to.shortSha}</Ref>
+        </p>
+        {this.renderComparisonCommit('From', from)}
+        <div className="commit-comparison-arrow" aria-hidden="true">
+          <Octicon symbol={octicons.arrowDown} />
+        </div>
+        {this.renderComparisonCommit('To', to)}
+      </div>
+    )
+  }
+
+  private renderComparisonCommit(label: string, commit: Commit) {
+    const summary =
+      commit.summary.length > 0 ? commit.summary : 'Empty commit message'
+
+    return (
+      <div className="commit-comparison-side">
+        <span className="label">{label}</span>
+        <Ref>{commit.shortSha}</Ref>
+        <RichText
+          className="summary selectable"
+          emoji={this.props.emoji}
+          repository={this.props.repository}
+          text={summary}
+        />
+      </div>
+    )
+  }
+
+  private onClearComparison = () => {
+    this.props.dispatcher.clearCommitComparison(this.props.repository)
   }
 
   private showUnreachableCommits = (selectedTab: UnreachableCommitsTab) => {
@@ -255,7 +317,13 @@ export class SelectedCommits extends React.Component<
   private renderFileList() {
     const files = this.props.changesetData.files
     if (files.length === 0) {
-      return <div className="fill-window">No files in commit</div>
+      const emptyMessage = isArbitraryCommitComparison(
+        this.props.selectedCommits.length,
+        this.props.isContiguous
+      )
+        ? 'No differences'
+        : 'No files in commit'
+      return <div className="fill-window">{emptyMessage}</div>
     }
 
     // -1 for right hand side border
@@ -300,7 +368,11 @@ export class SelectedCommits extends React.Component<
   public render() {
     const { selectedCommits, isContiguous } = this.props
 
-    if (selectedCommits.length > 1 && !isContiguous) {
+    if (
+      selectedCommits.length > 1 &&
+      !isContiguous &&
+      !isArbitraryCommitComparison(selectedCommits.length, isContiguous)
+    ) {
       return this.renderMultipleCommitsBlankSlate()
     }
 

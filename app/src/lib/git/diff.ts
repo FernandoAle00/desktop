@@ -335,6 +335,99 @@ export async function getCommitRangeChangedFiles(
 }
 
 /**
+ * The files that differ between two commits, using a two-dot range (`from..to`).
+ *
+ * Two dots compare the trees themselves: the changeset is whatever you'd apply
+ * to turn the snapshot at `from` into the snapshot at `to`. That holds even
+ * when the commits are not ancestors of each other.
+ *
+ * Three dots (`from...to`) would diff `to` against the merge-base of the two
+ * commits. That's the pull-request model, not "what changed between these two
+ * snapshots", so it isn't used here.
+ *
+ * Comparing a commit with itself returns an empty changeset.
+ */
+export async function getCommitComparisonChangedFiles(
+  repository: Repository,
+  fromSha: string,
+  toSha: string
+): Promise<IChangesetData> {
+  if (fromSha === toSha) {
+    return { files: [], linesAdded: 0, linesDeleted: 0 }
+  }
+
+  const { stdout } = await git(
+    [
+      'diff',
+      `${fromSha}..${toSha}`,
+      '-C',
+      '-M',
+      '-z',
+      '--raw',
+      '--numstat',
+      '--',
+    ],
+    repository.path,
+    'getCommitComparisonChangedFiles'
+  )
+
+  return parseRawLogWithNumstat(stdout, toSha, fromSha)
+}
+
+/**
+ * The patch of one file between two commits, using the same two-dot range as
+ * {@link getCommitComparisonChangedFiles}.
+ *
+ * Comparing a commit with itself returns an empty text diff.
+ */
+export async function getCommitComparisonDiff(
+  repository: Repository,
+  file: FileChange,
+  fromSha: string,
+  toSha: string,
+  hideWhitespaceInDiff: boolean = false
+): Promise<IDiff> {
+  if (fromSha === toSha) {
+    return {
+      kind: DiffType.Text,
+      text: '',
+      hunks: [],
+      maxLineNumber: 0,
+      hasHiddenBidiChars: false,
+    }
+  }
+
+  const args = [
+    'diff',
+    `${fromSha}..${toSha}`,
+    ...(hideWhitespaceInDiff ? ['-w'] : []),
+    '--patch-with-raw',
+    '-z',
+    '--no-color',
+    '--',
+    ensureRelativePath(file.path),
+  ]
+
+  if (
+    file.status.kind === AppFileStatusKind.Renamed ||
+    file.status.kind === AppFileStatusKind.Copied
+  ) {
+    args.push(ensureRelativePath(file.status.oldPath))
+  }
+
+  const { stdout } = await git(
+    args,
+    repository.path,
+    'getCommitComparisonDiff',
+    {
+      encoding: 'buffer',
+    }
+  )
+
+  return buildDiff(stdout, repository, file, toSha, fromSha)
+}
+
+/**
  * Render the diff for a file within the repository working directory. The file will be
  * compared against HEAD if it's tracked, if not it'll be compared to an empty file meaning
  * that all content in the file will be treated as additions.

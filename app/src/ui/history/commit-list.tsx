@@ -217,6 +217,13 @@ export class CommitList extends React.Component<
   private containerRef = React.createRef<HTMLDivElement>()
   private listRef = React.createRef<List>()
 
+  /**
+   * Right-clicking an unselected row selects it before the context menu opens.
+   * Capture the selection at mousedown so "Compare with Selected" still knows
+   * which commit the user already had selected.
+   */
+  private selectionAtContextMenuStart: ReadonlyArray<string> | null = null
+
   // This function is debounced to avoid updating the aria live region too
   // frequently on every key press.
   private updateKeyboardReorderingMessage = debounce(
@@ -625,6 +632,7 @@ export class CommitList extends React.Component<
           onCancelKeyboardInsertion={this.props.onCancelKeyboardReorder}
           onConfirmKeyboardInsertion={this.onConfirmKeyboardReorder}
           onRowContextMenu={this.onRowContextMenu}
+          onRowMouseDown={this.onRowMouseDown}
           selectionMode="multi"
           onScroll={this.onScroll}
           keyboardInsertionData={this.props.keyboardReorderData}
@@ -721,6 +729,18 @@ export class CommitList extends React.Component<
     }
   }
 
+  private onRowMouseDown = (
+    row: number,
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const isRightClick =
+      event.button === 2 || (__DARWIN__ && event.button === 0 && event.ctrlKey)
+
+    if (isRightClick) {
+      this.selectionAtContextMenuStart = this.props.selectedSHAs
+    }
+  }
+
   private onRowContextMenu = (
     row: number,
     event: React.MouseEvent<HTMLDivElement>
@@ -742,11 +762,19 @@ export class CommitList extends React.Component<
       return
     }
 
+    const selectedSHAsAtStart =
+      this.selectionAtContextMenuStart ?? this.props.selectedSHAs
+    this.selectionAtContextMenuStart = null
+
     let items: IMenuItem[] = []
     if (this.props.selectedSHAs.length > 1) {
       items = this.getContextMenuMultipleCommits(commit)
     } else {
-      items = this.getContextMenuForSingleCommit(row, commit)
+      items = this.getContextMenuForSingleCommit(
+        row,
+        commit,
+        selectedSHAsAtStart
+      )
     }
 
     showContextualMenu(items)
@@ -754,7 +782,8 @@ export class CommitList extends React.Component<
 
   private getContextMenuForSingleCommit(
     row: number,
-    commit: Commit
+    commit: Commit,
+    selectedSHAsForCompare: ReadonlyArray<string>
   ): IMenuItem[] {
     const isLocal = this.isLocalCommit(commit.sha)
 
@@ -781,6 +810,21 @@ export class CommitList extends React.Component<
     }
 
     const items: IMenuItem[] = []
+
+    if (
+      this.props.isInformationalView !== true &&
+      selectedSHAsForCompare.length === 1 &&
+      selectedSHAsForCompare[0] !== commit.sha
+    ) {
+      const fromSha = selectedSHAsForCompare[0]
+      items.push(
+        {
+          label: __DARWIN__ ? 'Compare with Selected' : 'Compare with selected',
+          action: () => this.onCompareWithSelected(fromSha, commit),
+        },
+        { type: 'separator' }
+      )
+    }
 
     if (canBeAmended) {
       items.push({
@@ -898,6 +942,18 @@ export class CommitList extends React.Component<
     )
 
     return items
+  }
+
+  private onCompareWithSelected = (fromSha: string, to: Commit) => {
+    const from = this.props.commitLookup.get(fromSha)
+    if (from === undefined) {
+      return
+    }
+
+    // isContiguous is forced false so adjacent commits still get a tree-to-tree
+    // diff (`from..to`) instead of the range diff (`from^..to`) used by a
+    // contiguous multi-select.
+    this.props.onCommitsSelected?.([from, to], false)
   }
 
   private canCherryPick(): boolean {

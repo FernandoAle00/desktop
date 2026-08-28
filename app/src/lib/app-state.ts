@@ -777,6 +777,23 @@ export interface ICommitSelection {
   readonly diff: IDiff | null
 }
 
+/**
+ * True when History is showing a tree-to-tree diff of two arbitrary commits
+ * rather than a single commit or a contiguous range.
+ *
+ * Encoded as exactly two selected SHAs with `isContiguous === false` so that
+ * existing multi-select (cherry-pick, squash, reorder) still uses the blank
+ * slate for three or more non-adjacent commits, and so that two adjacent
+ * commits still use the range diff (`A^..B`) when selected as a contiguous
+ * range.
+ */
+export function isArbitraryCommitComparison(
+  shaCount: number,
+  isContiguous: boolean
+): boolean {
+  return !isContiguous && shaCount === 2
+}
+
 export enum ChangesSelectionKind {
   WorkingDirectory = 'WorkingDirectory',
   Stash = 'Stash',

@@ -10,6 +10,75 @@
   // Necessary so that the diff doesn't expand
   // beyond the width of the history
   min-width: 0;
+
+  .commit-comparison-header {
+    border-bottom: var(--base-border);
+    padding: var(--spacing);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    min-width: 0;
+
+    .commit-comparison-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing);
+    }
+
+    .commit-comparison-title {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-half);
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      min-width: 0;
+
+      .octicon {
+        flex-shrink: 0;
+      }
+    }
+
+    .commit-comparison-direction {
+      margin: 0;
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+    }
+
+    .commit-comparison-side {
+      display: flex;
+      align-items: baseline;
+      gap: var(--spacing-half);
+      min-width: 0;
+      font-size: var(--font-size-sm);
+
+      .label {
+        color: var(--text-secondary-color);
+        flex-shrink: 0;
+        width: 3em;
+      }
+
+      .summary {
+        @include ellipsis;
+        min-width: 0;
+
+        &.selectable {
+          user-select: text;
+          cursor: text;
+        }
+      }
+    }
+
+    .commit-comparison-arrow {
+      display: flex;
+      padding-left: calc(3em + var(--spacing-half));
+      color: var(--text-secondary-color);
+
+      .octicon {
+        fill: currentColor;
+      }
+    }
+  }
 }
 
 #commit-summary-container {

@@ -283,6 +283,23 @@ export class Dispatcher {
     return this.appStore._changeCommitSelection(repository, shas, isContiguous)
   }
 
+  /**
+   * Compare two arbitrary commits. `fromSha` is the old tree, `toSha` is the
+   * new tree (`git diff fromSha..toSha`).
+   */
+  public compareCommits(
+    repository: Repository,
+    fromSha: string,
+    toSha: string
+  ): void {
+    this.appStore._compareCommits(repository, fromSha, toSha)
+  }
+
+  /** Leave the two-commit comparison and show the "from" commit on its own. */
+  public clearCommitComparison(repository: Repository): void {
+    this.appStore._clearCommitComparison(repository)
+  }
+
   /** Update the shas that should be highlighted */
   public updateShasToHighlight(
     repository: Repository,

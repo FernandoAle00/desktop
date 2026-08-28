@@ -173,6 +173,7 @@ import {
   ICompareState,
   CommitOptions,
   CommitSearchMode,
+  isArbitraryCommitComparison,
 } from '../app-state'
 import {
   findEditorOrDefault,
@@ -234,6 +235,8 @@ import {
   moveWorktree,
   getCommitRangeDiff,
   getCommitRangeChangedFiles,
+  getCommitComparisonDiff,
+  getCommitComparisonChangedFiles,
   updateRemoteHEAD,
   getBranchMergeBaseChangedFiles,
   getBranchMergeBaseDiff,
@@ -1597,7 +1600,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     if (
       commitSelection.shas.length === shas.length &&
-      commitSelection.shas.every((sha, i) => sha === shas[i])
+      commitSelection.shas.every((sha, i) => sha === shas[i]) &&
+      commitSelection.isContiguous === isContiguous
     ) {
       return
     }
@@ -1622,6 +1626,42 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }))
 
     this.emitUpdate()
+  }
+
+  /**
+   * Show the tree-to-tree diff between two arbitrary commits.
+   *
+   * Selection order is the diff direction: `fromSha` is the old tree, `toSha`
+   * is the new tree (`git diff fromSha..toSha`). This is distinct from a
+   * contiguous range selection, which diffs `first^..last`.
+   */
+  public _compareCommits(
+    repository: Repository,
+    fromSha: string,
+    toSha: string
+  ): void {
+    this._changeCommitSelection(repository, [fromSha, toSha], false)
+    this._loadChangedFilesForCurrentSelection(repository)
+  }
+
+  /**
+   * Leave the two-commit comparison and show the "from" commit on its own.
+   */
+  public _clearCommitComparison(repository: Repository): void {
+    const { commitSelection } = this.repositoryStateCache.get(repository)
+    const fromSha = commitSelection.shas[0]
+    if (
+      fromSha === undefined ||
+      !isArbitraryCommitComparison(
+        commitSelection.shas.length,
+        commitSelection.isContiguous
+      )
+    ) {
+      return
+    }
+
+    this._changeCommitSelection(repository, [fromSha], true)
+    this._loadChangedFilesForCurrentSelection(repository)
   }
 
   private recordMultiCommitDiff(
@@ -2086,19 +2126,35 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const state = this.repositoryStateCache.get(repository)
     const { commitSelection } = state
     const { shas: currentSHAs, isContiguous } = commitSelection
-    if (currentSHAs.length === 0 || (currentSHAs.length > 1 && !isContiguous)) {
+    if (currentSHAs.length === 0) {
+      return
+    }
+
+    if (
+      currentSHAs.length > 1 &&
+      !isContiguous &&
+      !isArbitraryCommitComparison(currentSHAs.length, isContiguous)
+    ) {
       return
     }
 
     const gitStore = this.gitStoreCache.get(repository)
-    const changesetData = await gitStore.performFailableOperation(() =>
-      currentSHAs.length > 1
+    const changesetData = await gitStore.performFailableOperation(() => {
+      if (isArbitraryCommitComparison(currentSHAs.length, isContiguous)) {
+        return getCommitComparisonChangedFiles(
+          repository,
+          currentSHAs[0],
+          currentSHAs[1]
+        )
+      }
+
+      return currentSHAs.length > 1
         ? getCommitRangeChangedFiles(
             repository,
             this.orderShasByHistory(repository, currentSHAs)
           )
         : getChangedFiles(repository, currentSHAs[0])
-    )
+    })
     if (!changesetData) {
       return
     }
@@ -2166,24 +2222,35 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
     }
 
-    if (shas.length > 1 && !isContiguous) {
+    if (
+      shas.length > 1 &&
+      !isContiguous &&
+      !isArbitraryCommitComparison(shas.length, isContiguous)
+    ) {
       return
     }
 
-    const diff =
-      shas.length > 1
-        ? await getCommitRangeDiff(
-            repository,
-            file,
-            this.orderShasByHistory(repository, shas),
-            this.hideWhitespaceInHistoryDiff
-          )
-        : await getCommitDiff(
-            repository,
-            file,
-            shas[0],
-            this.hideWhitespaceInHistoryDiff
-          )
+    const diff = isArbitraryCommitComparison(shas.length, isContiguous)
+      ? await getCommitComparisonDiff(
+          repository,
+          file,
+          shas[0],
+          shas[1],
+          this.hideWhitespaceInHistoryDiff
+        )
+      : shas.length > 1
+      ? await getCommitRangeDiff(
+          repository,
+          file,
+          this.orderShasByHistory(repository, shas),
+          this.hideWhitespaceInHistoryDiff
+        )
+      : await getCommitDiff(
+          repository,
+          file,
+          shas[0],
+          this.hideWhitespaceInHistoryDiff
+        )
 
     const stateAfterLoad = this.repositoryStateCache.get(repository)
     const { shas: shasAfter } = stateAfterLoad.commitSelection
