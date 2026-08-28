@@ -94,6 +94,7 @@ export enum PopupType {
   DiscardChangesRetry = 'DiscardChangesRetry',
   PullRequestReview = 'PullRequestReview',
   UnreachableCommits = 'UnreachableCommits',
+  FileHistory = 'FileHistory',
   StartPullRequest = 'StartPullRequest',
   Error = 'Error',
   InstallingUpdate = 'InstallingUpdate',
@@ -429,6 +430,11 @@ export type PopupDetail =
   | {
       type: PopupType.UnreachableCommits
       selectedTab: UnreachableCommitsTab
+    }
+  | {
+      type: PopupType.FileHistory
+      repository: Repository
+      path: string
     }
   | {
       type: PopupType.StartPullRequest

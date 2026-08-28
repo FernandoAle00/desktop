@@ -177,6 +177,7 @@ import { getRepositoryType } from '../lib/git'
 import { SSHUserPassword } from './ssh/ssh-user-password'
 import { showContextualMenu } from '../lib/menu-item'
 import { UnreachableCommitsDialog } from './history/unreachable-commits-dialog'
+import { FileHistoryDialog } from './history/file-history-dialog'
 import { OpenPullRequestDialog } from './open-pull-request/open-pull-request-dialog'
 import { sendNonFatalException } from '../lib/helpers/non-fatal-exception'
 import { ICustomIntegration } from '../lib/custom-integration'
@@ -2660,6 +2661,17 @@ export class App extends React.Component<IAppProps, IAppState> {
             onDismissed={onPopupDismissedFn}
             accounts={this.state.accounts}
             preferAbsoluteDates={this.state.preferAbsoluteDates}
+          />
+        )
+      }
+      case PopupType.FileHistory: {
+        return (
+          <FileHistoryDialog
+            repository={popup.repository}
+            path={popup.path}
+            accounts={this.state.accounts}
+            emoji={this.state.emoji}
+            onDismissed={onPopupDismissedFn}
           />
         )
       }

@@ -75,6 +75,7 @@ import {
 import { ChangesListFilterOptions } from './changes-list-filter-options'
 import { HookProgress } from '../../lib/git'
 import { formatNumber } from '../../lib/format-number'
+import { getViewFileHistoryMenuItem } from '../history/file-list'
 
 export interface IChangesListItem extends IFilterListItem {
   readonly id: string
@@ -790,6 +791,7 @@ export class FilterChangesList extends React.Component<
     const enabled = status.kind !== AppFileStatusKind.Deleted
     items.push(
       { type: 'separator' },
+      getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
       this.getRevealInFileManagerMenuItem(file),
       this.getOpenInExternalEditorMenuItem(file, enabled),
       {
@@ -824,6 +826,7 @@ export class FilterChangesList extends React.Component<
       this.getCopyPathMenuItem(file),
       this.getCopyRelativePathMenuItem(file),
       { type: 'separator' },
+      getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
       this.getRevealInFileManagerMenuItem(file),
       this.getOpenInExternalEditorMenuItem(file, enabled),
       {
@@ -854,6 +857,14 @@ export class FilterChangesList extends React.Component<
         : this.getRebaseContextMenu(file)
 
     showContextualMenu(items)
+  }
+
+  private onViewFileHistory = (file: WorkingDirectoryFileChange) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.FileHistory,
+      repository: this.props.repository,
+      path: file.path,
+    })
   }
 
   private getPlaceholderMessage(

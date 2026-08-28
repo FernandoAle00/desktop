@@ -25,7 +25,8 @@ import { Dispatcher } from '../dispatcher'
 import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
-import { FileList } from './file-list'
+import { FileList, getViewFileHistoryMenuItem } from './file-list'
+import { PopupType } from '../../models/popup'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
@@ -385,6 +386,8 @@ export class SelectedCommits extends React.Component<
     const fileExistsOnDisk = await pathExists(fullPath)
     if (!fileExistsOnDisk) {
       showContextualMenu([
+        getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
+        { type: 'separator' },
         {
           label: __DARWIN__
             ? 'File Does Not Exist on Disk'
@@ -428,6 +431,8 @@ export class SelectedCommits extends React.Component<
         action: () => clipboard.writeText(Path.normalize(file.path)),
       },
       { type: 'separator' },
+      getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
+      { type: 'separator' },
     ]
 
     let viewOnGitHubLabel = 'View on GitHub'
@@ -455,6 +460,14 @@ export class SelectedCommits extends React.Component<
 
   private onViewOnGitHub = (sha: string, file: CommittedFileChange) => {
     this.props.onViewCommitOnGitHub(sha, file.path)
+  }
+
+  private onViewFileHistory = (file: CommittedFileChange) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.FileHistory,
+      repository: this.props.repository,
+      path: file.path,
+    })
   }
 }
 

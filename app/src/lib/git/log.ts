@@ -209,6 +209,73 @@ export async function getCommits(
   })
 }
 
+/**
+ * Get the commits that touched `path`, following renames via `git log --follow`.
+ *
+ * `--follow` only works for a single path, and that path must be passed after
+ * `--` so Git treats it as a pathspec rather than a revision (this also keeps
+ * paths with spaces or leading dashes intact).
+ */
+export async function getCommitsForFile(
+  repository: Repository,
+  path: string,
+  limit?: number
+): Promise<ReadonlyArray<Commit>> {
+  const { formatArgs, parse } = createLogParser({
+    sha: '%H', // SHA
+    shortSha: '%h', // short SHA
+    summary: '%s', // summary
+    body: '%b', // body
+    // author identity string, matching format of GIT_AUTHOR_IDENT.
+    //   author name <author email> <author date>
+    // author date format dependent on --date arg, should be raw
+    author: '%an <%ae> %ad',
+    committer: '%cn <%ce> %cd',
+    parents: '%P', // parent SHAs,
+    trailers: '%(trailers:unfold,only)',
+    refs: '%D',
+  })
+
+  const args = ['log', '--follow', '--date=raw']
+
+  if (limit !== undefined) {
+    args.push(`--max-count=${limit}`)
+  }
+
+  args.push(...formatArgs, '--no-show-signature', '--no-color', '--', path)
+
+  const result = await git(args, repository.path, 'getCommitsForFile', {
+    successExitCodes: new Set([0, 128]),
+    encoding: 'buffer',
+  })
+
+  // if the repository has an unborn HEAD, return an empty history of commits
+  if (result.exitCode === 128) {
+    return new Array<Commit>()
+  }
+
+  const parsed = parse(result.stdout)
+
+  return parsed.map(commit => {
+    const tags = commit.refs
+      .toString()
+      .split(', ')
+      .flatMap(ref => (ref.startsWith('tag: ') ? ref.substring(5) : []))
+
+    return new Commit(
+      commit.sha.toString(),
+      commit.shortSha.toString(),
+      commit.summary.subarray(0, 100 * 1024).toString(),
+      commit.body.subarray(0, 100 * 1024).toString(),
+      CommitIdentity.parseIdentity(commit.author.toString()),
+      CommitIdentity.parseIdentity(commit.committer.toString()),
+      commit.parents.length > 0 ? commit.parents.toString().split(' ') : [],
+      parseRawUnfoldedTrailers(commit.trailers.toString(), ':'),
+      tags
+    )
+  })
+}
+
 /** This interface contains information of a changeset. */
 export interface IChangesetData {
   /** Files changed in the changeset. */

@@ -4,6 +4,7 @@ import { mapStatus } from '../../lib/status'
 import { CommittedFileChange } from '../../models/status'
 import { ClickSource, List } from '../lib/list'
 import { CommittedFileItem } from './committed-file-item'
+import { IMenuItem } from '../../lib/menu-item'
 
 interface IFileListProps {
   readonly files: ReadonlyArray<CommittedFileChange>
@@ -19,6 +20,14 @@ interface IFileListProps {
 
 interface IFileListState {
   readonly focusedRow: number | null
+}
+
+/** Context menu entry that opens the file history dialog. */
+export function getViewFileHistoryMenuItem(action: () => void): IMenuItem {
+  return {
+    label: __DARWIN__ ? 'View File History' : 'View file history',
+    action,
+  }
 }
 
 /**
