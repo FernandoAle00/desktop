@@ -123,6 +123,7 @@ export enum PopupType {
   ConfirmDeleteCopilotBYOKProvider = 'ConfirmDeleteCopilotBYOKProvider',
   CopilotConflictResolutionAlwaysNudge = 'CopilotConflictResolutionAlwaysNudge',
   DeleteWorktreeFailed = 'DeleteWorktreeFailed',
+  Blame = 'Blame',
 }
 
 interface IBasePopup {
@@ -555,5 +556,11 @@ export type PopupDetail =
       worktreePath: string
       error: Error
       originalWorktree: WorktreeEntry | null
+    }
+  | {
+      type: PopupType.Blame
+      repository: Repository
+      path: string
+      commitish?: string
     }
 export type Popup = IBasePopup & PopupDetail

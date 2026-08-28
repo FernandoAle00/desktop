@@ -39,6 +39,7 @@ import { arrayEquals } from '../../lib/equality'
 import { clipboard } from 'electron'
 import { basename } from 'path'
 import { Commit, ICommitContext } from '../../models/commit'
+import { getBlameMenuItem } from '../blame'
 import {
   RebaseConflictState,
   ConflictState,
@@ -798,7 +799,9 @@ export class FilterChangesList extends React.Component<
         label: OpenWithDefaultProgramLabel,
         action: () => this.props.onOpenItem(path),
         enabled: enabled && isSafeExtension,
-      }
+      },
+      { type: 'separator' },
+      this.getFileBlameMenuItem(file, enabled)
     )
 
     return items
@@ -833,10 +836,28 @@ export class FilterChangesList extends React.Component<
         label: OpenWithDefaultProgramLabel,
         action: () => this.props.onOpenItem(path),
         enabled: enabled && isSafeExtension,
-      }
+      },
+      { type: 'separator' },
+      this.getFileBlameMenuItem(file, enabled)
     )
 
     return items
+  }
+
+  private getFileBlameMenuItem(
+    file: WorkingDirectoryFileChange,
+    enabled: boolean
+  ): IMenuItem {
+    return {
+      ...getBlameMenuItem(() => {
+        this.props.dispatcher.showPopup({
+          type: PopupType.Blame,
+          repository: this.props.repository,
+          path: file.path,
+        })
+      }),
+      enabled,
+    }
   }
 
   private onItemContextMenu = (

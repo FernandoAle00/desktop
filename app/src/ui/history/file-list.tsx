@@ -2,7 +2,9 @@ import * as React from 'react'
 import { mapStatus } from '../../lib/status'
 
 import { CommittedFileChange } from '../../models/status'
+import { IMenuItem } from '../../lib/menu-item'
 import { ClickSource, List } from '../lib/list'
+import { getBlameMenuItem } from '../blame'
 import { CommittedFileItem } from './committed-file-item'
 import { IMenuItem } from '../../lib/menu-item'
 
@@ -12,9 +14,11 @@ interface IFileListProps {
   readonly onSelectedFileChanged: (file: CommittedFileChange) => void
   readonly onRowDoubleClick: (row: number, source: ClickSource) => void
   readonly availableWidth: number
+  readonly onBlame?: (file: CommittedFileChange) => void
   readonly onContextMenu?: (
     file: CommittedFileChange,
-    event: React.MouseEvent<HTMLDivElement>
+    event: React.MouseEvent<HTMLDivElement>,
+    extraItems: ReadonlyArray<IMenuItem>
   ) => void
 }
 
@@ -67,7 +71,12 @@ export class FileList extends React.Component<IFileListProps, IFileListState> {
     row: number,
     event: React.MouseEvent<HTMLDivElement>
   ) => {
-    this.props.onContextMenu?.(this.props.files[row], event)
+    const file = this.props.files[row]
+    const extraItems =
+      this.props.onBlame !== undefined
+        ? [getBlameMenuItem(() => this.props.onBlame?.(file))]
+        : []
+    this.props.onContextMenu?.(file, event, extraItems)
   }
 
   private getFileAriaLabel = (row: number) => {

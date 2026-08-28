@@ -130,6 +130,7 @@ import {
 } from '../models/github-repository'
 import { CreateTag } from './create-tag'
 import { DeleteTag } from './delete-tag'
+import { BlameView } from './blame'
 import { ChooseForkSettings } from './choose-fork-settings'
 import { DiscardSelection } from './discard-changes/discard-selection-dialog'
 import { LocalChangesOverwrittenDialog } from './local-changes-overwritten/local-changes-overwritten-dialog'
@@ -3014,6 +3015,17 @@ export class App extends React.Component<IAppProps, IAppState> {
             originalWorktree={popup.originalWorktree}
             onDeleteWorktree={this.onDeleteWorkTree}
             onSwitchToWorktree={this.onSwitchToWorktree}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.Blame: {
+        return (
+          <BlameView
+            key="blame"
+            repository={popup.repository}
+            path={popup.path}
+            commitish={popup.commitish}
             onDismissed={onPopupDismissedFn}
           />
         )

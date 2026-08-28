@@ -1,0 +1,122 @@
+#blame {
+  width: 900px;
+  max-width: calc(100vw - var(--spacing-double) * 4);
+  height: 80vh;
+  max-height: calc(100vh - var(--spacing-double) * 4);
+
+  .dialog-content.blame-content {
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .blame-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: var(--spacing-double);
+    color: var(--text-secondary-color);
+    text-align: center;
+
+    .octicon {
+      margin-bottom: var(--spacing);
+    }
+
+    p {
+      margin: 0;
+    }
+  }
+
+  .blame-list {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+
+    // Flush rows so gutter and code share one 20px track with no list chrome.
+    .list-item {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      align-items: stretch;
+      background: transparent;
+
+      &:not(.not-selectable):hover {
+        background: transparent;
+      }
+
+      &.selected {
+        background: transparent;
+        color: inherit;
+      }
+    }
+
+    .list-focus-container.focus-within .list-item.selected {
+      background: transparent;
+      color: inherit;
+    }
+  }
+
+  .blame-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+    line-height: 20px;
+    background: var(--background-color);
+
+    &.odd {
+      background: var(--box-alt-background-color);
+    }
+  }
+
+  .blame-gutter {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    width: 280px;
+    padding: 0 var(--spacing);
+    gap: var(--spacing-half);
+    overflow: hidden;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+    user-select: none;
+
+    .sha {
+      flex-shrink: 0;
+      width: 7ch;
+      font-family: var(--font-family-monospace);
+    }
+
+    .author {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .date {
+      flex-shrink: 0;
+    }
+  }
+
+  .blame-code {
+    flex: 1;
+    min-width: 0;
+    padding: 0 var(--spacing);
+    overflow: hidden;
+    white-space: pre;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+    color: var(--diff-text-color);
+    border-left: 1px solid var(--diff-border-color);
+  }
+}

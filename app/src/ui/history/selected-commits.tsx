@@ -39,6 +39,7 @@ import { ExpandableCommitSummary } from './expandable-commit-summary'
 import { DiffHeader } from '../diff/diff-header'
 import { Account } from '../../models/account'
 import { Emoji } from '../../lib/emoji'
+import { PopupType } from '../../models/popup'
 
 interface ISelectedCommitsProps {
   readonly repository: Repository
@@ -268,6 +269,7 @@ export class SelectedCommits extends React.Component<
           onSelectedFileChanged={this.onFileSelected}
           selectedFile={this.props.selectedFile}
           availableWidth={availableWidth}
+          onBlame={this.onBlameFile}
           onContextMenu={this.onContextMenu}
           onRowDoubleClick={this.onRowDoubleClick}
         />
@@ -369,9 +371,19 @@ export class SelectedCommits extends React.Component<
     )
   }
 
+  private onBlameFile = (file: CommittedFileChange) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.Blame,
+      repository: this.props.repository,
+      path: file.path,
+      commitish: file.commitish,
+    })
+  }
+
   private onContextMenu = async (
     file: CommittedFileChange,
-    event: React.MouseEvent<HTMLDivElement>
+    event: React.MouseEvent<HTMLDivElement>,
+    extraItems: ReadonlyArray<IMenuItem> = []
   ) => {
     event.preventDefault()
 
@@ -385,7 +397,11 @@ export class SelectedCommits extends React.Component<
     const fullPath = Path.join(repository.path, file.path)
     const fileExistsOnDisk = await pathExists(fullPath)
     if (!fileExistsOnDisk) {
-      showContextualMenu([
+      const missingItems: IMenuItem[] = [...extraItems]
+      if (extraItems.length > 0) {
+        missingItems.push({ type: 'separator' })
+      }
+      missingItems.push(
         getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
         { type: 'separator' },
         {
@@ -393,8 +409,9 @@ export class SelectedCommits extends React.Component<
             ? 'File Does Not Exist on Disk'
             : 'File does not exist on disk',
           enabled: false,
-        },
-      ])
+        }
+      )
+      showContextualMenu(missingItems)
       return
     }
 
@@ -405,7 +422,11 @@ export class SelectedCommits extends React.Component<
       ? `Open in ${externalEditorLabel}`
       : DefaultEditorLabel
 
-    const items: IMenuItem[] = [
+    const items: IMenuItem[] = [...extraItems]
+    if (extraItems.length > 0) {
+      items.push({ type: 'separator' })
+    }
+    items.push(
       {
         label: RevealInFileManagerLabel,
         action: () => revealInFileManager(repository, file.path),
@@ -432,8 +453,8 @@ export class SelectedCommits extends React.Component<
       },
       { type: 'separator' },
       getViewFileHistoryMenuItem(() => this.onViewFileHistory(file)),
-      { type: 'separator' },
-    ]
+      { type: 'separator' }
+    )
 
     let viewOnGitHubLabel = 'View on GitHub'
     const gitHubRepository = repository.gitHubRepository
