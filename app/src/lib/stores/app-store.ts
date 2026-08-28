@@ -11190,7 +11190,11 @@ function commitFilterArgs(
     case CommitSearchMode.File:
       return {
         additionalArgs: [],
-        pathspecs: [filterText],
+        // A bare pathspec anchors at the root of the repository and has to
+        // match a whole path, so typing part of a file name found nothing.
+        // The glob magic matches the fragment anywhere in the tree, and icase
+        // means the capitalisation of the file doesn't have to be guessed.
+        pathspecs: [`:(glob,icase)**/*${filterText}*`],
       }
     case CommitSearchMode.Content:
       return {
