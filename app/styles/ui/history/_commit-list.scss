@@ -66,6 +66,10 @@
 
         background-color: var(--box-selected-active-background-color);
       }
+
+      .commit-graph svg {
+        filter: drop-shadow(0 0 1px var(--box-selected-active-text-color));
+      }
     }
   }
 
@@ -108,6 +112,63 @@
   // We need to give a bit more padding to the right to make place for the scrollbar
   padding-right: calc(var(--spacing) + var(--spacing-half));
   padding-left: var(--spacing);
+
+  &.has-graph {
+    padding-left: var(--spacing-half);
+  }
+
+  .commit-graph {
+    flex: 0 0 auto;
+    align-self: stretch;
+    height: 100%;
+    margin-right: var(--spacing-half);
+    overflow: hidden;
+    pointer-events: none;
+
+    svg {
+      display: block;
+      height: 100%;
+    }
+
+    path {
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+
+    circle {
+      stroke: none;
+    }
+
+    .lane-0 {
+      stroke: var(--commit-graph-lane-1);
+      fill: var(--commit-graph-lane-1);
+    }
+
+    .lane-1 {
+      stroke: var(--commit-graph-lane-2);
+      fill: var(--commit-graph-lane-2);
+    }
+
+    .lane-2 {
+      stroke: var(--commit-graph-lane-3);
+      fill: var(--commit-graph-lane-3);
+    }
+
+    .lane-3 {
+      stroke: var(--commit-graph-lane-4);
+      fill: var(--commit-graph-lane-4);
+    }
+
+    .lane-4 {
+      stroke: var(--commit-graph-lane-5);
+      fill: var(--commit-graph-lane-5);
+    }
+
+    .lane-5 {
+      stroke: var(--commit-graph-lane-6);
+      fill: var(--commit-graph-lane-6);
+    }
+  }
 
   .info {
     display: flex;

@@ -2,6 +2,7 @@ import * as React from 'react'
 import memoize from 'memoize-one'
 import { GitHubRepository } from '../../models/github-repository'
 import { Commit, CommitOneLine } from '../../models/commit'
+import { computeCommitGraph } from '../../lib/commit-graph'
 import { CommitListItem } from './commit-list-item'
 import { KeyboardInsertionData, List } from '../lib/list'
 import { arrayEquals } from '../../lib/equality'
@@ -184,6 +185,13 @@ interface ICommitListProps {
 
   /** This will make the list semantics friendly to screen reader users in browse mode. */
   readonly isInformationalView?: boolean
+
+  /**
+   * Whether to draw the commit topology column. History mode only.
+   * When omitted, the column follows `reorderingEnabled`, which the
+   * History tab already sets and Compare mode leaves off.
+   */
+  readonly showCommitGraph?: boolean
 }
 
 interface ICommitListState {
@@ -204,6 +212,7 @@ export class CommitList extends React.Component<
     (commitSHAs: ReadonlyArray<string>) =>
       new Map(commitSHAs.map((sha, index) => [sha, index]))
   )
+  private getCommitGraph = memoizeOne(computeCommitGraph)
 
   private containerRef = React.createRef<HTMLDivElement>()
   private listRef = React.createRef<List>()
@@ -289,6 +298,10 @@ export class CommitList extends React.Component<
       (isLocal || unpushedTags.length > 0) &&
       this.props.isLocalRepository === false
 
+    const graph = this.shouldShowCommitGraph()
+      ? this.getCommitGraph(this.props.commitSHAs, this.props.commitLookup)
+      : null
+
     return (
       <CommitListItem
         key={commit.sha}
@@ -311,8 +324,19 @@ export class CommitList extends React.Component<
         disableSquashing={this.props.disableSquashing}
         accounts={this.props.accounts}
         preferAbsoluteDates={this.props.preferAbsoluteDates}
+        graphRow={graph?.rows[row]}
+        graphLaneCount={graph?.laneCount}
       />
     )
+  }
+
+  private shouldShowCommitGraph(): boolean {
+    if (this.props.showCommitGraph !== undefined) {
+      return this.props.showCommitGraph
+    }
+
+    // History tab sets this; Compare and other CommitList hosts leave it off.
+    return this.props.reorderingEnabled === true
   }
 
   private get inKeyboardReorderMode() {
@@ -618,6 +642,13 @@ export class CommitList extends React.Component<
             tagsToPush: this.props.tagsToPush,
             shasToHighlight: this.props.shasToHighlight,
             preferAbsoluteDates: this.props.preferAbsoluteDates,
+            showCommitGraph: this.shouldShowCommitGraph(),
+            graphLaneCount: this.shouldShowCommitGraph()
+              ? this.getCommitGraph(
+                  this.props.commitSHAs,
+                  this.props.commitLookup
+                ).laneCount
+              : 0,
           }}
           setScrollTop={this.props.compareListScrollTop}
           rowCustomClassNameMap={this.getRowCustomClassMap()}

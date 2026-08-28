@@ -27,6 +27,8 @@ import { Emoji } from '../../lib/emoji'
 import { enableAccessibleListToolTips } from '../../lib/feature-flag'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import { formatDate } from '../../lib/format-date'
+import { ICommitGraphRow } from '../../lib/commit-graph'
+import { CommitGraph } from './commit-graph'
 
 interface ICommitProps {
   readonly gitHubRepository: GitHubRepository | null
@@ -50,6 +52,10 @@ interface ICommitProps {
   readonly unpushedIndicatorTitle?: string
   readonly accounts: ReadonlyArray<Account>
   readonly preferAbsoluteDates: boolean
+  /** Graph layout for this row. Omit to hide the topology column. */
+  readonly graphRow?: ICommitGraphRow
+  /** Total lanes in the graph; drives the column width. */
+  readonly graphLaneCount?: number
 }
 
 interface ICommitListItemState {
@@ -133,6 +139,10 @@ export class CommitListItem extends React.PureComponent<
       'empty-summary': hasEmptySummary,
     })
 
+    const commitClassNames = classNames('commit', {
+      'has-graph': this.props.graphRow !== undefined,
+    })
+
     return (
       <Draggable
         isEnabled={isDraggable}
@@ -147,11 +157,12 @@ export class CommitListItem extends React.PureComponent<
         ]}
       >
         <div
-          className="commit"
+          className={commitClassNames}
           onMouseEnter={this.onMouseEnter}
           onMouseLeave={this.onMouseLeave}
           onMouseUp={this.onMouseUp}
         >
+          {this.renderCommitGraph()}
           <div className="info">
             <RichText
               className={summaryClassNames}
@@ -175,6 +186,15 @@ export class CommitListItem extends React.PureComponent<
         </div>
       </Draggable>
     )
+  }
+
+  private renderCommitGraph() {
+    const { graphRow, graphLaneCount } = this.props
+    if (graphRow === undefined || graphLaneCount === undefined) {
+      return null
+    }
+
+    return <CommitGraph row={graphRow} laneCount={graphLaneCount} />
   }
 
   private renderCommitIndicators() {

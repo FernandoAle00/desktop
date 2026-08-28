@@ -539,6 +539,19 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --status-error-color: #{$red-500};
   --status-success-color: #1a7f37;
 
+  /**
+   * Commit graph lane colors. Chosen to stay readable on the default
+   * list background and, with the selected-row halo, on the blue
+   * active-selection fill. Blue itself is omitted so a lane doesn't
+   * vanish into the selection.
+   */
+  --commit-graph-lane-1: #{$green-600};
+  --commit-graph-lane-2: #{$orange-600};
+  --commit-graph-lane-3: #{$purple-500};
+  --commit-graph-lane-4: #{$red-500};
+  --commit-graph-lane-5: #{$yellow-800};
+  --commit-graph-lane-6: #0e8a72;
+
   // PR status icon colors
   --pr-open-icon-color: #{$green-500};
   --pr-draft-icon-color: #{$gray-500};
