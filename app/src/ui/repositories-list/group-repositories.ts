@@ -19,6 +19,10 @@ export type RepositoryListGroup =
       kind: 'recent' | 'other'
     }
   | {
+      kind: 'custom'
+      name: string
+    }
+  | {
       kind: 'dotcom'
       owner: Owner
     }
@@ -37,12 +41,14 @@ export const getGroupKey = (group: RepositoryListGroup) => {
   switch (kind) {
     case 'recent':
       return `0:recent`
+    case 'custom':
+      return `1:custom:${group.name}`
     case 'dotcom':
-      return `1:dotcom:${group.owner.login}`
+      return `2:dotcom:${group.owner.login}`
     case 'enterprise':
-      return `2:enterprise:${group.host}`
+      return `3:enterprise:${group.host}`
     case 'other':
-      return `3:other`
+      return `4:other`
     default:
       assertNever(group, `Unknown repository group kind ${kind}`)
   }
@@ -64,6 +70,10 @@ const getHostForRepository = (repo: RepositoryWithGitHubRepository) =>
   new URL(getHTMLURL(repo.gitHubRepository.endpoint)).host
 
 const getGroupForRepository = (repo: Repositoryish): RepositoryListGroup => {
+  if (repo instanceof Repository && repo.group !== null) {
+    return { kind: 'custom', name: repo.group }
+  }
+
   if (repo instanceof Repository && isRepositoryWithGitHubRepository(repo)) {
     return isDotCom(repo.gitHubRepository.endpoint)
       ? { kind: 'dotcom', owner: repo.gitHubRepository.owner }
@@ -154,13 +164,14 @@ const toSortedListItems = (
         id: r.id.toString(),
         repository: r,
         needsDisambiguation:
-          // If the repository is in the enterprise group and has a duplicate
-          // name in the group, we need to disambiguate it. We don't have to
-          // disambiguate repositories in the 'dotcom' group because they are
-          // already grouped by owner. If the repository is in the 'recent'
-          // group and has a duplicate name in any group, we need to
-          // disambiguate it.
-          ((groupNames.get(title) ?? 0) > 1 && group.kind === 'enterprise') ||
+          // If the repository is in an enterprise or user-defined group and
+          // has a duplicate name in the group, we need to disambiguate it. We
+          // don't have to disambiguate repositories in the 'dotcom' group
+          // because they are already grouped by owner. If the repository is in
+          // the 'recent' group and has a duplicate name in any group, we need
+          // to disambiguate it.
+          ((groupNames.get(title) ?? 0) > 1 &&
+            (group.kind === 'enterprise' || group.kind === 'custom')) ||
           ((allNames.get(title) ?? 0) > 1 && group.kind === 'recent'),
         aheadBehind: repoState?.aheadBehind ?? null,
         changedFilesCount: repoState?.changedFilesCount ?? 0,
@@ -170,3 +181,18 @@ const toSortedListItems = (
       caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
     )
 }
+
+/**
+ * Returns the names of the user-defined groups currently in use, sorted
+ * alphabetically.
+ */
+export const getRepositoryGroupNames = (
+  repositories: ReadonlyArray<Repositoryish>
+) =>
+  Array.from(
+    new Set(
+      repositories.flatMap(r =>
+        r instanceof Repository && r.group !== null ? [r.group] : []
+      )
+    )
+  ).sort(caseInsensitiveCompare)

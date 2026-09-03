@@ -28,6 +28,20 @@ describe('repository list grouping', () => {
 
   const cache = new Map<number, ILocalRepositoryState>()
 
+  const inGroup = (repository: Repository, group: string) =>
+    new Repository(
+      repository.path,
+      repository.id,
+      repository.gitHubRepository,
+      repository.missing,
+      repository.alias,
+      repository.workflowPreferences,
+      repository.isTutorialRepository,
+      repository.gitDir,
+      repository.mainWorktreePath,
+      group
+    )
+
   it('groups repositories by owners/Enterprise/Other', () => {
     const grouped = groupRepositories(repositories, cache, [])
     assert.equal(grouped.length, 3)
@@ -152,5 +166,77 @@ describe('repository list grouping', () => {
 
     assert.equal(grouped[2].items[1].text[0], 'enterprise-repo')
     assert(grouped[2].items[1].needsDisambiguation)
+  })
+
+  it('groups repositories by their user-defined group before owners', () => {
+    const grouped = groupRepositories(
+      [
+        inGroup(new Repository('repo1', 1, null, false), 'Work'),
+        inGroup(
+          new Repository(
+            'repo2',
+            2,
+            gitHubRepoFixture({ owner: 'me', name: 'my-repo2' }),
+            false
+          ),
+          'Work'
+        ),
+        new Repository(
+          'repo3',
+          3,
+          gitHubRepoFixture({ owner: 'me', name: 'my-repo3' }),
+          false
+        ),
+      ],
+      cache,
+      []
+    )
+
+    assert.equal(grouped.length, 2)
+
+    assert.equal(grouped[0].identifier.kind, 'custom')
+    assert.equal((grouped[0].identifier as any).name, 'Work')
+    assert.deepEqual(
+      grouped[0].items.map(i => i.repository.path),
+      ['repo2', 'repo1']
+    )
+
+    assert.equal(grouped[1].identifier.kind, 'dotcom')
+    assert.deepEqual(
+      grouped[1].items.map(i => i.repository.path),
+      ['repo3']
+    )
+  })
+
+  it('disambiguates repositories sharing a name within a group', () => {
+    const grouped = groupRepositories(
+      [
+        inGroup(
+          new Repository(
+            'a/repo',
+            1,
+            gitHubRepoFixture({ owner: 'user1', name: 'repo' }),
+            false
+          ),
+          'Work'
+        ),
+        inGroup(
+          new Repository(
+            'b/repo',
+            2,
+            gitHubRepoFixture({ owner: 'user2', name: 'repo' }),
+            false
+          ),
+          'Work'
+        ),
+      ],
+      cache,
+      []
+    )
+
+    assert.equal(grouped.length, 1)
+    assert.equal(grouped[0].items.length, 2)
+    assert(grouped[0].items[0].needsDisambiguation)
+    assert(grouped[0].items[1].needsDisambiguation)
   })
 })

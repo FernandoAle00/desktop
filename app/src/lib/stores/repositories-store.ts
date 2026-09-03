@@ -154,7 +154,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.workflowPreferences,
       repo.isTutorialRepository,
       repo.gitDir,
-      repo.mainWorktreePath
+      repo.mainWorktreePath,
+      repo.group ?? null
     )
   }
 
@@ -295,7 +296,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.workflowPreferences,
       repository.isTutorialRepository,
       repository.gitDir,
-      repository.mainWorktreePath
+      repository.mainWorktreePath,
+      repository.group
     )
   }
 
@@ -317,7 +319,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.workflowPreferences,
       repository.isTutorialRepository,
       gitDir,
-      repository.mainWorktreePath
+      repository.mainWorktreePath,
+      repository.group
     )
   }
 
@@ -332,6 +335,19 @@ export class RepositoriesStore extends TypedBaseStore<
     alias: string | null
   ): Promise<void> {
     await this.db.repositories.update(repository.id, { alias })
+
+    this.emitUpdatedRepositories()
+  }
+
+  /**
+   * Move the repository into a user-defined group, or out of any group when
+   * passed null.
+   */
+  public async updateRepositoryGroup(
+    repository: Repository,
+    group: string | null
+  ): Promise<void> {
+    await this.db.repositories.update(repository.id, { group })
 
     this.emitUpdatedRepositories()
   }
@@ -383,7 +399,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repository.workflowPreferences,
       repository.isTutorialRepository,
       gitDir,
-      mainWorktreePath
+      mainWorktreePath,
+      repository.group
     )
   }
 
@@ -436,7 +453,8 @@ export class RepositoriesStore extends TypedBaseStore<
         repository.workflowPreferences,
         repository.isTutorialRepository,
         gitDir,
-        mainWorktreePath
+        mainWorktreePath,
+        repository.group
       ),
       existingRepository: false,
     }
@@ -586,7 +604,8 @@ export class RepositoriesStore extends TypedBaseStore<
       repo.workflowPreferences,
       repo.isTutorialRepository,
       repo.gitDir,
-      repo.mainWorktreePath
+      repo.mainWorktreePath,
+      repo.group ?? null
     )
 
     assertIsRepositoryWithGitHubRepository(updatedRepo)

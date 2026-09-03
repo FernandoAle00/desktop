@@ -53,6 +53,12 @@ export interface IDatabaseRepository {
   readonly alias: string | null
   readonly missing: boolean
 
+  /**
+   * The name of the user-defined group this repository belongs to. Undefined
+   * for repositories added before groups existed.
+   */
+  readonly group?: string | null
+
   /** The path to the .git directory for this repository */
   readonly gitDir?: string
 

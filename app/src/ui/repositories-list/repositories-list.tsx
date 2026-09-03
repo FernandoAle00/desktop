@@ -7,6 +7,7 @@ import {
   Repositoryish,
   RepositoryListGroup,
   getGroupKey,
+  getRepositoryGroupNames,
 } from './group-repositories'
 import { IFilterListGroup } from '../lib/filter-list'
 import { IMatches } from '../../lib/fuzzy-find'
@@ -246,6 +247,8 @@ export class RepositoriesList extends React.Component<
       return group.host
     } else if (kind === 'other') {
       return 'Other'
+    } else if (kind === 'custom') {
+      return group.name
     } else if (kind === 'dotcom') {
       return group.owner.login
     } else if (kind === 'recent') {
@@ -297,6 +300,9 @@ export class RepositoriesList extends React.Component<
       externalEditorLabel: this.props.externalEditorLabel,
       onChangeRepositoryAlias: this.onChangeRepositoryAlias,
       onRemoveRepositoryAlias: this.onRemoveRepositoryAlias,
+      repositoryGroups: getRepositoryGroupNames(this.props.repositories),
+      onChangeRepositoryGroup: this.onChangeRepositoryGroup,
+      onCreateRepositoryGroup: this.onCreateRepositoryGroup,
       onViewOnGitHub: this.props.onViewOnGitHub,
       onCreateWorktree: enableWorktreeSupport()
         ? this.onCreateWorktree
@@ -462,6 +468,20 @@ export class RepositoriesList extends React.Component<
 
   private onRemoveRepositoryAlias = (repository: Repository) => {
     this.props.dispatcher.changeRepositoryAlias(repository, null)
+  }
+
+  private onChangeRepositoryGroup = (
+    repository: Repository,
+    group: string | null
+  ) => {
+    this.props.dispatcher.changeRepositoryGroup(repository, group)
+  }
+
+  private onCreateRepositoryGroup = (repository: Repository) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.ChangeRepositoryGroup,
+      repository,
+    })
   }
 
   private onCreateWorktree = (repository: Repository) => {

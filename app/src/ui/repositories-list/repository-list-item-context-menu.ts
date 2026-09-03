@@ -20,6 +20,13 @@ interface IRepositoryListItemContextMenuConfig {
   onRemoveRepository: (repository: Repositoryish) => void
   onChangeRepositoryAlias: (repository: Repository) => void
   onRemoveRepositoryAlias: (repository: Repository) => void
+  /** The user-defined group names currently in use */
+  repositoryGroups: ReadonlyArray<string>
+  onChangeRepositoryGroup: (
+    repository: Repository,
+    group: string | null
+  ) => void
+  onCreateRepositoryGroup: (repository: Repository) => void
   onCreateWorktree?: (repository: Repository) => void
   onShowWorktrees?: (repository: Repository) => void
 }
@@ -40,6 +47,7 @@ export const generateRepositoryListContextMenu = (
 
   const items: ReadonlyArray<IMenuItem> = [
     ...buildAliasMenuItems(config),
+    ...buildGroupMenuItems(config),
     ...buildWorktreeMenuItems(config),
     {
       label: __DARWIN__ ? 'Copy Repo Name' : 'Copy repo name',
@@ -105,6 +113,50 @@ const buildAliasMenuItems = (
   }
 
   return items
+}
+
+const buildGroupMenuItems = (
+  config: IRepositoryListItemContextMenuConfig
+): ReadonlyArray<IMenuItem> => {
+  const { repository, repositoryGroups } = config
+
+  if (!(repository instanceof Repository)) {
+    return []
+  }
+
+  const submenu: Array<IMenuItem> = repositoryGroups.map(group => ({
+    label: group,
+    type: 'checkbox',
+    checked: repository.group === group,
+    action: () =>
+      config.onChangeRepositoryGroup(
+        repository,
+        repository.group === group ? null : group
+      ),
+  }))
+
+  if (submenu.length > 0) {
+    submenu.push({ type: 'separator' })
+  }
+
+  submenu.push({
+    label: __DARWIN__ ? 'New Group…' : 'New group…',
+    action: () => config.onCreateRepositoryGroup(repository),
+  })
+
+  if (repository.group !== null) {
+    submenu.push({
+      label: __DARWIN__ ? 'Remove from Group' : 'Remove from group',
+      action: () => config.onChangeRepositoryGroup(repository, null),
+    })
+  }
+
+  return [
+    {
+      label: 'Group',
+      submenu,
+    },
+  ]
 }
 
 const buildWorktreeMenuItems = (
