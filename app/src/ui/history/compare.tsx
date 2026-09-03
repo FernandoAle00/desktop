@@ -244,15 +244,15 @@ export class CompareSidebar extends React.Component<
           ariaHaspopup="menu"
         >
           <Octicon symbol={getCommitSearchModeIcon(mode)} />
-          <Octicon symbol={octicons.triangleDown} height={10} />
+          <Octicon symbol={octicons.triangleDown} />
         </Button>
-        <FancyTextBox
+        <TextBox
+          ref={this.onCommitFilterTextBoxRef}
+          className="commit-filter-field"
           ariaLabel={placeholder}
-          symbol={octicons.search}
           displayClearButton={true}
           placeholder={placeholder}
           value={this.state.commitFilterText}
-          onRef={this.onCommitFilterTextBoxRef}
           onValueChanged={this.onCommitFilterTextChanged}
           onKeyDown={this.onCommitFilterKeyDown}
           onSearchCleared={this.onCommitFilterCleared}
@@ -307,7 +307,7 @@ export class CompareSidebar extends React.Component<
     )
   }
 
-  private onCommitFilterTextBoxRef = (textbox: TextBox) => {
+  private onCommitFilterTextBoxRef = (textbox: TextBox | null) => {
     this.commitFilterTextbox = textbox
   }
 

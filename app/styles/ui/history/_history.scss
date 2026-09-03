@@ -104,36 +104,30 @@
     flex: initial;
     padding: 0 var(--spacing-half) var(--spacing-half);
     display: flex;
-    align-items: stretch;
+    align-items: center;
 
     .commit-search-mode-button {
-      height: var(--text-field-height);
-      padding: 0 var(--spacing-half);
       border-radius: var(--border-radius) 0 0 var(--border-radius);
       border-right: none;
+      color: var(--text-color);
       display: inline-flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      gap: var(--spacing-third);
+      padding-right: var(--spacing-half);
       flex-shrink: 0;
 
       .octicon {
         margin: 0;
-
-        &:last-child {
-          margin-left: 1px;
-        }
       }
     }
 
-    .fancy-text-box-component {
+    .commit-filter-field {
       flex: 1;
       min-width: 0;
-      border-top-left-radius: 0;
-      border-bottom-left-radius: 0;
 
-      .fancy-octicon {
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
+      input {
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
       }
     }
   }
