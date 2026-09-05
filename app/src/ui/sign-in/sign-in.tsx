@@ -28,13 +28,20 @@ interface ISignInState {
   readonly endpoint: string
 }
 
-const SignInWithBrowserTitle = __DARWIN__
+const SignInWithBrowserTitle = __DEV_SECRETS__
+  ? 'Connect GitHub CLI'
+  : __DARWIN__
   ? 'Sign in Using Your Browser'
   : 'Sign in using your browser'
 
 const DefaultTitle = 'Sign in'
 
-const browserSignInInfoContent = (
+const browserSignInInfoContent = __DEV_SECRETS__ ? (
+  <p>
+    Connect the account signed in with <Ref>gh auth login</Ref>. GitHub Desktop
+    Plus stores its own credential and does not require GitHub Desktop.
+  </p>
+) : (
   <p>
     Your browser will redirect you back to GitHub Desktop once you've signed in.
     If your browser asks for your permission to launch GitHub Desktop, please
@@ -90,12 +97,20 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
         this.props.dispatcher.setSignInEndpoint(this.state.endpoint)
         break
       case SignInStep.ExistingAccountWarning:
+        if (__DEV_SECRETS__) {
+          this.props.dispatcher.requestGitHubCliAuthentication()
+          break
+        }
         this.props.dispatcher
           .removeAccount(state.existingAccount)
           .then(() => this.props.dispatcher.setSignInEndpoint(state.endpoint))
         break
       case SignInStep.Authentication:
-        this.props.dispatcher.requestBrowserAuthentication()
+        if (__DEV_SECRETS__) {
+          this.props.dispatcher.requestGitHubCliAuthentication()
+        } else {
+          this.props.dispatcher.requestBrowserAuthentication()
+        }
         break
       case SignInStep.Success:
         this.onDismissed()
@@ -120,7 +135,9 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
 
     let primaryButtonText: string
     const stepKind = state.kind
-    const continueWithBrowserLabel = __DARWIN__
+    const continueWithBrowserLabel = __DEV_SECRETS__
+      ? 'Connect GitHub CLI'
+      : __DARWIN__
       ? 'Continue With Browser'
       : 'Continue with browser'
 
@@ -157,8 +174,10 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
         <p className="existing-account-warning">
           You're already signed in to{' '}
           <Ref>{new URL(getHTMLURL(state.endpoint)).host}</Ref> with the account{' '}
-          <Ref>{state.existingAccount.login}</Ref>. If you continue, you will
-          first be signed out.
+          <Ref>{state.existingAccount.login}</Ref>.{' '}
+          {__DEV_SECRETS__
+            ? 'Connecting GitHub CLI will replace the account in Plus after verification.'
+            : 'If you continue, you will first be signed out.'}
         </p>
         {browserSignInInfoContent}
       </DialogContent>

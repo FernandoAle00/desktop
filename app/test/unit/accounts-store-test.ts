@@ -26,6 +26,34 @@ describe('AccountsStore', () => {
     })
   })
 
+  it('signing in and out of Plus preserves the original Desktop credential', async () => {
+    const secureStore = new AsyncInMemoryStore()
+    const endpoint = 'https://api.github.com'
+    await secureStore.setItem(`GitHub - ${endpoint}`, 'joan', 'original-token')
+    const store = new AccountsStore(new InMemoryStore(), secureStore)
+    const account = new Account(
+      'joan',
+      endpoint,
+      'plus-token',
+      [],
+      '',
+      1,
+      '',
+      'free'
+    )
+
+    await store.addAccount(account)
+    assert.equal(
+      await secureStore.getItem(`GitHub - ${endpoint}`, 'joan'),
+      'original-token'
+    )
+    await store.removeAccount(account)
+    assert.equal(
+      await secureStore.getItem(`GitHub - ${endpoint}`, 'joan'),
+      'original-token'
+    )
+  })
+
   describe('loading persisted users', () => {
     it('migrates .ghe.com users still using /api/v3 to api. subdomain', async () => {
       const dataStore = new InMemoryStore()

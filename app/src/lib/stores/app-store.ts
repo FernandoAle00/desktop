@@ -143,7 +143,6 @@ import {
   IAPIFullRepository,
   IAPIComment,
   IAPIRepoRuleset,
-  deleteToken,
   IAPICreatePushProtectionBypassResponse,
 } from '../api'
 import { shell } from '../app-shell'
@@ -8251,6 +8250,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return this.signInStore.setEndpoint(url)
   }
 
+  public _requestGitHubCliAuthentication() {
+    return this.signInStore.authenticateWithGitHubCLI()
+  }
+
   public _requestBrowserAuthentication() {
     this.signInStore.authenticateWithBrowser()
   }
@@ -8311,7 +8314,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       `[AppStore] removing account ${account.login} (${account.name}) from store`
     )
     await this.accountsStore.removeAccount(account)
-    await deleteToken(account)
+    // Disconnect only this app; imported credentials may be used by GitHub CLI.
   }
 
   private async _addAccount(account: Account): Promise<void> {

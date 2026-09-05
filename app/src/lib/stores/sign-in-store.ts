@@ -20,6 +20,7 @@ import { IOAuthAction } from '../parse-app-url'
 import { shell } from '../app-shell'
 import noop from 'lodash/noop'
 import { AccountsStore } from './accounts-store'
+import { getGitHubCliAccount } from '../github-cli-auth'
 
 /**
  * An enumeration of the possible steps that the sign in
@@ -252,6 +253,38 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
     }
   }
 
+  /** Connect a verified CLI account without removing an existing session first. */
+  public async authenticateWithGitHubCLI() {
+    const currentState = this.state
+    if (
+      currentState?.kind !== SignInStep.Authentication &&
+      currentState?.kind !== SignInStep.ExistingAccountWarning
+    ) {
+      return
+    }
+    if (currentState.loading) {
+      return
+    }
+
+    const pendingState = { ...currentState, error: null, loading: true }
+    this.setState(pendingState)
+    try {
+      const account = await getGitHubCliAccount(currentState.endpoint)
+      if (this.state !== pendingState) {
+        return
+      }
+      this.emitAuthenticate(account)
+      this.setState({
+        kind: SignInStep.Success,
+        resultCallback: currentState.resultCallback,
+      })
+    } catch (error) {
+      if (this.state === pendingState) {
+        this.setState({ ...currentState, error, loading: false })
+      }
+    }
+  }
+
   /**
    * Initiate an OAuth sign in using the system configured browser.
    * This method must only be called when the store is in the authentication
@@ -268,6 +301,17 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
       return fatalError(
         `Sign in step '${stepText}' not compatible with browser authentication`
       )
+    }
+
+    if (__DEV_SECRETS__) {
+      this.setState({
+        ...currentState,
+        loading: false,
+        error: new Error(
+          'This build uses development OAuth credentials. Connect your GitHub CLI account instead.'
+        ),
+      })
+      return
     }
 
     this.setState({ ...currentState, loading: true })

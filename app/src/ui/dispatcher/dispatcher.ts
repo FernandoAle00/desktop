@@ -1787,6 +1787,10 @@ export class Dispatcher {
    * protocol handler to execute or by providing the wrong credentials
    * this promise will never complete.
    */
+  public requestGitHubCliAuthentication() {
+    return this.appStore._requestGitHubCliAuthentication()
+  }
+
   public requestBrowserAuthentication() {
     this.appStore._requestBrowserAuthentication()
   }
