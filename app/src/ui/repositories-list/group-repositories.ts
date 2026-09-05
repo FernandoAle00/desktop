@@ -59,6 +59,7 @@ export interface IRepositoryListItem extends IFilterListItem {
   readonly text: ReadonlyArray<string>
   readonly id: string
   readonly repository: Repositoryish
+  readonly group: RepositoryListGroup
   readonly needsDisambiguation: boolean
   readonly aheadBehind: IAheadBehind | null
   readonly changedFilesCount: number
@@ -69,8 +70,11 @@ const recentRepositoriesThreshold = 7
 const getHostForRepository = (repo: RepositoryWithGitHubRepository) =>
   new URL(getHTMLURL(repo.gitHubRepository.endpoint)).host
 
-const getGroupForRepository = (repo: Repositoryish): RepositoryListGroup => {
-  if (repo instanceof Repository && repo.group !== null) {
+export const getGroupForRepository = (
+  repo: Repositoryish,
+  useCustomGroup = true
+): RepositoryListGroup => {
+  if (useCustomGroup && repo instanceof Repository && repo.group !== null) {
     return { kind: 'custom', name: repo.group }
   }
 
@@ -87,7 +91,8 @@ type RepoGroupItem = { group: RepositoryListGroup; repos: Repositoryish[] }
 export function groupRepositories(
   repositories: ReadonlyArray<Repositoryish>,
   localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-  recentRepositories: ReadonlyArray<number>
+  recentRepositories: ReadonlyArray<number>,
+  repositoryOrder: ReadonlyArray<number> = []
 ): ReadonlyArray<IFilterListGroup<IRepositoryListItem, RepositoryListGroup>> {
   const includeRecentGroup = repositories.length > recentRepositoriesThreshold
   const recentSet = includeRecentGroup ? new Set(recentRepositories) : undefined
@@ -120,7 +125,8 @@ export function groupRepositories(
         group,
         repos,
         localRepositoryStateLookup,
-        groups
+        groups,
+        repositoryOrder
       ),
     }))
 }
@@ -134,7 +140,8 @@ const toSortedListItems = (
   group: RepositoryListGroup,
   repositories: ReadonlyArray<Repositoryish>,
   localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-  groups: Map<string, RepoGroupItem>
+  groups: Map<string, RepoGroupItem>,
+  repositoryOrder: ReadonlyArray<number>
 ): IRepositoryListItem[] => {
   const groupNames = new Map<string, number>()
   const allNames = new Map<string, number>()
@@ -154,6 +161,8 @@ const toSortedListItems = (
     }
   }
 
+  const positions = new Map(repositoryOrder.map((id, index) => [id, index]))
+
   return repositories
     .map(r => {
       const repoState = localRepositoryStateLookup.get(r.id)
@@ -163,6 +172,7 @@ const toSortedListItems = (
         text: r instanceof Repository ? [title, nameOf(r)] : [title],
         id: r.id.toString(),
         repository: r,
+        group,
         needsDisambiguation:
           // If the repository is in an enterprise or user-defined group and
           // has a duplicate name in the group, we need to disambiguate it. We
@@ -177,9 +187,16 @@ const toSortedListItems = (
         changedFilesCount: repoState?.changedFilesCount ?? 0,
       }
     })
-    .sort(({ repository: x }, { repository: y }) =>
-      caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
-    )
+    .sort(({ repository: x }, { repository: y }) => {
+      const order =
+        group.kind === 'recent'
+          ? 0
+          : (positions.get(x.id) ?? repositoryOrder.length) -
+            (positions.get(y.id) ?? repositoryOrder.length)
+      return (
+        order || caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
+      )
+    })
 }
 
 /**

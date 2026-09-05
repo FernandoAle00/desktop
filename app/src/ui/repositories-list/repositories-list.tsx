@@ -28,6 +28,12 @@ import { enableWorktreeSupport } from '../../lib/feature-flag'
 import { SectionFilterList } from '../lib/section-filter-list'
 import { assertNever } from '../../lib/fatal-error'
 import { IAheadBehind } from '../../models/branch'
+import { getNumberArray, setNumberArray } from '../../lib/local-storage'
+import { getDropGroup, moveRepository } from './repository-order'
+import { RepositoryDropTarget } from './repository-drop-target'
+
+const repositoryOrderKey = 'repository-list-order-v1'
+const repositoryDragType = 'application/x-desktop-repository'
 
 const BlankSlateImage = encodePathAsUrl(__dirname, 'static/empty-no-repo.svg')
 
@@ -81,6 +87,7 @@ interface IRepositoriesListProps {
 interface IRepositoriesListState {
   readonly newRepositoryMenuExpanded: boolean
   readonly selectedItem: IRepositoryListItem | null
+  readonly repositoryOrder: ReadonlyArray<number>
 }
 
 const RowHeight = 29
@@ -123,14 +130,16 @@ export class RepositoriesList extends React.Component<
     (
       repositories: ReadonlyArray<Repositoryish> | null,
       localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-      recentRepositories: ReadonlyArray<number>
+      recentRepositories: ReadonlyArray<number>,
+      repositoryOrder: ReadonlyArray<number>
     ) =>
       repositories === null
         ? []
         : groupRepositories(
             repositories,
             localRepositoryStateLookup,
-            recentRepositories
+            recentRepositories,
+            repositoryOrder
           )
   )
 
@@ -145,26 +154,168 @@ export class RepositoriesList extends React.Component<
    */
   private getSelectedListItem = memoizeOne(findMatchingListItem)
 
+  private draggedRepository: Repository | null = null
+  private dropElement: HTMLElement | null = null
+  private movingRepository = false
+
   public constructor(props: IRepositoriesListProps) {
     super(props)
 
     this.state = {
       newRepositoryMenuExpanded: false,
       selectedItem: null,
+      repositoryOrder: getNumberArray(repositoryOrderKey),
     }
+  }
+
+  private onDragStart = (
+    event: React.DragEvent<HTMLDivElement>,
+    repository: Repositoryish
+  ) => {
+    if (!(repository instanceof Repository) || this.movingRepository) {
+      event.preventDefault()
+      return
+    }
+    this.draggedRepository = repository
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData(repositoryDragType, repository.id.toString())
+    event.stopPropagation()
+  }
+
+  private clearDropTarget = () => {
+    this.dropElement?.removeAttribute('data-drop-position')
+    this.dropElement = null
+  }
+
+  private onDragEnd = () => {
+    this.draggedRepository = null
+    this.clearDropTarget()
+  }
+
+  private onDragOver = (
+    event: React.DragEvent<HTMLDivElement>,
+    group: RepositoryListGroup,
+    target?: Repositoryish
+  ) => {
+    const repository = this.draggedRepository
+    if (
+      repository === null ||
+      !event.dataTransfer.types.includes(repositoryDragType)
+    ) {
+      return
+    }
+    event.stopPropagation()
+    if (
+      this.movingRepository ||
+      getDropGroup(repository, group) === undefined ||
+      target?.id === repository.id
+    ) {
+      this.clearDropTarget()
+      event.dataTransfer.dropEffect = 'none'
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'move'
+    this.clearDropTarget()
+    this.dropElement = event.currentTarget
+    const bounds = event.currentTarget.getBoundingClientRect()
+    this.dropElement.dataset.dropPosition =
+      target === undefined
+        ? 'group'
+        : event.clientY < bounds.top + bounds.height / 2
+        ? 'before'
+        : 'after'
+  }
+
+  private getOrderedGroups = () =>
+    this.getRepositoryGroups(
+      this.props.repositories,
+      this.props.localRepositoryStateLookup,
+      this.props.recentRepositories,
+      this.state.repositoryOrder
+    )
+
+  private moveToGroup = async (
+    repository: Repository,
+    group: RepositoryListGroup,
+    target: Repositoryish | undefined,
+    position: 'before' | 'after'
+  ) => {
+    const newGroup = getDropGroup(repository, group)
+    if (newGroup === undefined || this.movingRepository) {
+      return
+    }
+    const groups = this.getOrderedGroups().filter(
+      g => g.identifier.kind !== 'recent'
+    )
+    const order = groups.flatMap(g => g.items.map(i => i.repository.id))
+    const destination = groups.find(
+      g => getGroupKey(g.identifier) === getGroupKey(group)
+    )
+    const targetID = target?.id ?? destination?.items.at(-1)?.repository.id
+    const nextOrder =
+      targetID === undefined
+        ? order
+        : moveRepository(order, repository.id, targetID, position)
+    this.movingRepository = true
+    try {
+      if (repository.group !== newGroup) {
+        await this.props.dispatcher.changeRepositoryGroup(repository, newGroup)
+      }
+      setNumberArray(repositoryOrderKey, nextOrder)
+      this.setState({ repositoryOrder: nextOrder })
+    } catch (error) {
+      this.props.dispatcher.postError(
+        error instanceof Error ? error : new Error(String(error))
+      )
+    } finally {
+      this.movingRepository = false
+    }
+  }
+
+  private onDrop = (
+    event: React.DragEvent<HTMLDivElement>,
+    group: RepositoryListGroup,
+    target?: Repositoryish
+  ) => {
+    const repository = this.draggedRepository
+    const position = event.currentTarget.dataset.dropPosition
+    if (repository === null || position === undefined) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    this.onDragEnd()
+    this.moveToGroup(
+      repository,
+      group,
+      target,
+      position === 'before' ? 'before' : 'after'
+    )
   }
 
   private renderItem = (item: IRepositoryListItem, matches: IMatches) => {
     const repository = item.repository
     return (
-      <RepositoryListItem
+      <RepositoryDropTarget
         key={repository.id}
         repository={repository}
-        needsDisambiguation={item.needsDisambiguation}
-        matches={matches}
-        aheadBehind={item.aheadBehind}
-        changedFilesCount={item.changedFilesCount}
-      />
+        group={item.group}
+        onDragStart={this.onDragStart}
+        onDragEnd={this.onDragEnd}
+        onDragOver={this.onDragOver}
+        onDragLeave={this.clearDropTarget}
+        onDrop={this.onDrop}
+      >
+        <RepositoryListItem
+          repository={repository}
+          needsDisambiguation={item.needsDisambiguation}
+          matches={matches}
+          aheadBehind={item.aheadBehind}
+          changedFilesCount={item.changedFilesCount}
+        />
+      </RepositoryDropTarget>
     )
   }
 
@@ -262,15 +413,24 @@ export class RepositoriesList extends React.Component<
     const label = this.getGroupLabel(group)
 
     return (
-      <TooltippedContent
-        key={getGroupKey(group)}
-        className="filter-list-group-header"
-        tooltip={label}
-        onlyWhenOverflowed={true}
-        tagName="div"
+      <RepositoryDropTarget
+        group={group}
+        onDragStart={this.onDragStart}
+        onDragEnd={this.onDragEnd}
+        onDragOver={this.onDragOver}
+        onDragLeave={this.clearDropTarget}
+        onDrop={this.onDrop}
       >
-        {label}
-      </TooltippedContent>
+        <TooltippedContent
+          key={getGroupKey(group)}
+          className="filter-list-group-header"
+          tooltip={label}
+          onlyWhenOverflowed={true}
+          tagName="div"
+        >
+          {label}
+        </TooltippedContent>
+      </RepositoryDropTarget>
     )
   }
 
@@ -314,7 +474,45 @@ export class RepositoriesList extends React.Component<
       shellLabel: this.props.shellLabel,
     })
 
-    showContextualMenu(items)
+    const repository = item.repository
+    const group = this.getOrderedGroups().find(
+      g =>
+        g.identifier.kind !== 'recent' &&
+        g.items.some(i => i.repository.id === repository.id)
+    )
+    if (repository instanceof Repository && group !== undefined) {
+      const index = group.items.findIndex(
+        i => i.repository.id === repository.id
+      )
+      const moves: IMenuItem[] = [
+        {
+          label: 'Move Up',
+          enabled: index > 0,
+          action: () =>
+            this.moveToGroup(
+              repository,
+              group.identifier,
+              group.items[index - 1]?.repository,
+              'before'
+            ),
+        },
+        {
+          label: 'Move Down',
+          enabled: index < group.items.length - 1,
+          action: () =>
+            this.moveToGroup(
+              repository,
+              group.identifier,
+              group.items[index + 1]?.repository,
+              'after'
+            ),
+        },
+        { type: 'separator' },
+      ]
+      showContextualMenu([...moves, ...items])
+    } else {
+      showContextualMenu(items)
+    }
   }
 
   private getItemAriaLabel = (item: IRepositoryListItem) => item.repository.name
@@ -328,11 +526,7 @@ export class RepositoriesList extends React.Component<
       this.getGroupLabel(groups[group].identifier)
 
   public render() {
-    const groups = this.getRepositoryGroups(
-      this.props.repositories,
-      this.props.localRepositoryStateLookup,
-      this.props.recentRepositories
-    )
+    const groups = this.getOrderedGroups()
 
     // So there's two types of selection at play here. There's the repository
     // selection for the whole app and then there's the keyboard selection in
@@ -360,6 +554,7 @@ export class RepositoriesList extends React.Component<
           invalidationProps={{
             repositories: this.props.repositories,
             filterText: this.props.filterText,
+            repositoryOrder: this.state.repositoryOrder,
           }}
           onItemContextMenu={this.onItemContextMenu}
           getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}
