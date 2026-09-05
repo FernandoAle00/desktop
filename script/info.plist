@@ -1,5 +1,7 @@
 <plist version="1.0">
 <dict>
+	<key>CFBundleIconName</key>
+	<string>desktop-plus</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

@@ -198,6 +198,10 @@ function packageApp() {
     appBundleId: getBundleID(),
     appCategoryType: 'public.app-category.developer-tools',
     darwinDarkModeSupport: true,
+    extraResource:
+      process.platform === 'darwin'
+        ? [join(projectRoot, 'app/static/logos/Assets.car')]
+        : [],
     osxSign: {
       optionsForFile: (path: string) => ({
         hardenedRuntime: true,

@@ -1,0 +1,23 @@
+name: Compile Desktop icon
+on:
+  push:
+    branches: [feat/commit-search]
+    paths:
+      - app/static/logos/desktop-plus.icon/**
+      - .github/workflows/desktop-icon.yml
+      - script/compile-macos-icon.sh
+permissions:
+  contents: read
+jobs:
+  icon:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile appearance assets
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          bash script/compile-macos-icon.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-icon
+          path: app/static/logos/Assets.car
