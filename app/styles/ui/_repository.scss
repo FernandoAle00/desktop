@@ -20,12 +20,26 @@
     display: flex;
     flex-direction: column;
 
-    // The sidebar sits one tonal step off the canvas, which is what separates
-    // it from the diff. It doesn't need a rule as well.
-    background-color: var(--box-alt-background-color);
+    background-color: var(--box-background-color);
 
     .tab-bar {
       flex-shrink: 0;
+
+      &.tabs {
+        padding: 0 var(--spacing);
+        gap: var(--spacing);
+        border-bottom: var(--base-border);
+
+        .tab-bar-item {
+          border-radius: 0;
+          border-bottom: 2px solid transparent;
+
+          &.selected {
+            background: transparent;
+            border-bottom-color: var(--focus-color);
+          }
+        }
+      }
     }
 
     .panel {

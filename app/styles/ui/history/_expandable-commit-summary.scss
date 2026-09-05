@@ -8,13 +8,11 @@
 
   .beneath-summary {
     overflow-y: auto;
-    padding: var(--spacing);
-    padding-top: 0;
-    padding-bottom: var(--spacing-half);
+    padding: 0 calc(var(--spacing) * 2) var(--spacing);
   }
 
   .ecs-title {
-    font-size: var(--font-size-md);
+    font-size: calc(var(--font-size-md) + 4px);
     font-weight: var(--font-weight-semibold);
     line-height: 1.4;
     display: flex;
@@ -22,8 +20,7 @@
     // A summary longer than the pane wraps onto as many lines as it needs, so
     // the section grows with the title instead of clipping it.
     align-items: flex-start;
-    padding: var(--spacing);
-    padding-bottom: var(--spacing-half);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2) var(--spacing-half);
 
     // Branch names and paths have no spaces to break at, so they'd overflow
     // the flex row rather than wrap.
@@ -80,6 +77,8 @@
   .ecs-meta {
     display: flex;
     flex-wrap: wrap;
+    row-gap: var(--spacing-half);
+    color: var(--text-secondary-color);
 
     .ecs-meta-item {
       display: flex;

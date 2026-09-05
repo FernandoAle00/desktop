@@ -97,12 +97,12 @@
 
   .compare-form {
     flex: initial;
-    padding: 0 var(--spacing-half) var(--spacing-half);
+    padding: var(--spacing) var(--spacing) var(--spacing-half);
   }
 
   .commit-filter {
     flex: initial;
-    padding: 0 var(--spacing-half) var(--spacing-half);
+    padding: 0 var(--spacing) var(--spacing);
     display: flex;
     align-items: center;
 

@@ -6,6 +6,16 @@
   flex: 1;
   min-height: 0;
 
+  .list-item {
+    margin: 0;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .list-item:not(.selected):hover .commit {
+    background-color: var(--list-item-hover-background-color);
+  }
+
   .draggable,
   .commit {
     width: 100%;
@@ -106,8 +116,7 @@
   flex-direction: row;
   align-items: center;
 
-  background-color: var(--background-color);
-  border-bottom: var(--base-border);
+  background-color: var(--box-background-color);
 
   // We need to give a bit more padding to the right to make place for the scrollbar
   padding-right: calc(var(--spacing) + var(--spacing-half));
@@ -174,14 +183,14 @@
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    margin-top: -4px;
+    gap: var(--spacing-third);
     overflow: hidden;
     min-width: 50px;
 
     .description {
       display: flex;
       flex-direction: row;
-      margin-top: 3px;
+      margin-top: 0;
     }
 
     .summary {
@@ -272,7 +281,7 @@
       color: var(--list-item-badge-color);
       align-items: center;
       background: var(--list-item-selected-badge-background-color);
-      margin-top: 3px;
+      margin-top: 0;
     }
   }
 }
