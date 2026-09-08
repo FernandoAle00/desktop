@@ -1,5 +1,9 @@
 # [GitHub Desktop](https://desktop.github.com)
 
+## GitHub Desktop Plus
+
+Consultá el [changelog de GitHub Desktop Plus](CHANGELOG_PLUS.md) para ver todos los cambios integrados desde el fork y la rama que contiene la implementación.
+
 [GitHub Desktop](https://desktop.github.com/) is an open-source [Electron](https://www.electronjs.org/)-based
 GitHub app. It is written in [TypeScript](https://www.typescriptlang.org) and
 uses [React](https://reactjs.org/).
