@@ -44,6 +44,7 @@ import { CloningRepository } from '../models/cloning-repository'
 import { TitleBar, ZoomInfo, FullScreenInfo } from './window'
 
 import { RepositoriesList } from './repositories-list'
+import { Resizable } from './resizable'
 import { RepositoryView } from './repository'
 import { RenameBranch } from './rename-branch'
 import { DeleteBranch, DeleteRemoteBranch } from './delete-branch'
@@ -3936,6 +3937,14 @@ export class App extends React.Component<IAppProps, IAppState> {
     this.props.dispatcher.clearBanner()
   }
 
+  private onRepositoryToolbarResize = (width: number) => {
+    this.props.dispatcher.setSidebarWidth(width)
+  }
+
+  private onRepositoryToolbarReset = () => {
+    this.props.dispatcher.resetSidebarWidth()
+  }
+
   private renderToolbar() {
     /**
      * No toolbar if we're in the blank slate view.
@@ -3944,13 +3953,20 @@ export class App extends React.Component<IAppProps, IAppState> {
       return null
     }
 
-    const width = clamp(this.state.sidebarWidth)
+    const { sidebarWidth } = this.state
 
     return (
       <Toolbar id="desktop-app-toolbar">
-        <div className="sidebar-section" style={{ width }}>
+        <Resizable
+          width={sidebarWidth.value}
+          minimumWidth={sidebarWidth.min}
+          maximumWidth={sidebarWidth.max}
+          onResize={this.onRepositoryToolbarResize}
+          onReset={this.onRepositoryToolbarReset}
+          description="Current repository dropdown button"
+        >
           {this.renderRepositoryToolbarButton()}
-        </div>
+        </Resizable>
         {this.renderWorktreeToolbarButton()}
         {this.renderBranchToolbarButton()}
         {this.renderPushPullToolbarButton()}

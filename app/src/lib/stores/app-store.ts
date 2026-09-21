@@ -2872,6 +2872,13 @@ export class AppStore extends TypedBaseStore<IAppState> {
       (showWorktreeDropdown ? defaultWorktreeDropdownWidth : 0)
     const numButtons = 2 + (showWorktreeDropdown ? 1 : 0)
 
+    // Reserve the toolbar's horizontal padding and gaps between buttons.
+    const spacing =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--spacing')
+      ) || 10
+    const toolbarSpacing = spacing + (spacing / 3) * numButtons
+
     // Start with all the available width
     let available = window.innerWidth
 
@@ -2890,7 +2897,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // that will still fit the placeholder text in the branch selector textbox
     // of the history tab
     const maxSidebarWidth =
-      available - Math.max(toolbarButtonsMinWidth, tutorialMinWidth)
+      available -
+      Math.max(toolbarButtonsMinWidth + toolbarSpacing, tutorialMinWidth)
     this.sidebarWidth = constrain(this.sidebarWidth, 220, maxSidebarWidth)
 
     // Now calculate the width we have left to distribute for the other panes
@@ -2906,6 +2914,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.commitSummaryWidth = constrain(this.commitSummaryWidth, 100, filesMax)
     this.stashedFilesWidth = constrain(this.stashedFilesWidth, 100, filesMax)
+
+    available -= toolbarSpacing
 
     // Allocate worktree first (highest priority), then branch, then
     // push-pull. The foldouts are laid out in this order, so the width

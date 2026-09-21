@@ -23,20 +23,28 @@
   color: var(--toolbar-text-color);
   background-color: var(--toolbar-background-color);
 
-  .sidebar-section {
-    display: flex;
-    flex-direction: row;
-    flex-shrink: 0;
+  .resizable-component {
+    height: var(--toolbar-button-height);
 
-    & > :last-child {
-      // Redundant when `.resizable` is used, remove when
-      // enableResizingToolbarButtons() is removed.
-      flex-grow: 1;
+    > .resize-handle {
+      -webkit-app-region: no-drag;
+
+      // Keep the hit area wider than the divider itself.
+      &::after {
+        content: '';
+        position: absolute;
+        top: var(--spacing-half);
+        bottom: var(--spacing-half);
+        left: 50%;
+        width: 1px;
+        background-color: var(--toolbar-text-secondary-color);
+      }
+
+      &:hover::after,
+      &:active::after {
+        background-color: var(--toolbar-text-color);
+      }
     }
-  }
-
-  .sidebar-section {
-    gap: var(--spacing-third);
   }
 
   .toolbar-button {
