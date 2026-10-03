@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { clipboard } from 'electron'
 import * as Path from 'path'
+import memoizeOne from 'memoize-one'
 
 import { Repository } from '../../models/repository'
 import { CommittedFileChange } from '../../models/status'
@@ -36,6 +37,7 @@ import {
 } from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
 import { pathExists } from '../../lib/path-exists'
+import { filterCommittedFiles } from '../../lib/filter-committed-files'
 import { UnreachableCommitsTab } from './unreachable-commits-dialog'
 import { ExpandableCommitSummary } from './expandable-commit-summary'
 import { DiffHeader } from '../diff/diff-header'
@@ -47,6 +49,7 @@ import { Ref } from '../lib/ref'
 import { RichText } from '../lib/rich-text'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
+import { TextBox } from '../lib/text-box'
 
 interface ISelectedCommitsProps {
   readonly repository: Repository
@@ -104,6 +107,7 @@ interface ISelectedCommitsProps {
 
 interface ISelectedCommitsState {
   readonly isExpanded: boolean
+  readonly fileFilterText: string
 }
 
 /** The History component. Contains the commit list, commit summary, and diff. */
@@ -112,12 +116,14 @@ export class SelectedCommits extends React.Component<
   ISelectedCommitsState
 > {
   private readonly loadChangedFilesScheduler = new ThrottledScheduler(200)
+  private readonly filterFiles = memoizeOne(filterCommittedFiles)
 
   public constructor(props: ISelectedCommitsProps) {
     super(props)
 
     this.state = {
       isExpanded: false,
+      fileFilterText: '',
     }
   }
 
@@ -126,21 +132,44 @@ export class SelectedCommits extends React.Component<
   }
 
   private onRowDoubleClick = (row: number) => {
-    const files = this.props.changesetData.files
-    const file = files[row]
+    const file = this.getFilteredFiles()[row]
 
-    this.props.onOpenInExternalEditor(file.path)
+    if (file !== undefined) {
+      this.props.onOpenInExternalEditor(file.path)
+    }
   }
 
-  public componentWillUpdate(nextProps: ISelectedCommitsProps) {
-    // reset isExpanded if we're switching commits.
+  public componentWillReceiveProps(nextProps: ISelectedCommitsProps) {
+    // Reset the summary and file filter when switching commits or repositories.
     const currentValue = this.props.selectedCommits.map(c => c.sha).join('')
     const nextValue = nextProps.selectedCommits.map(c => c.sha).join('')
 
-    if (currentValue !== nextValue) {
-      if (this.state.isExpanded) {
-        this.setState({ isExpanded: false })
-      }
+    if (
+      currentValue !== nextValue ||
+      this.props.repository.id !== nextProps.repository.id
+    ) {
+      this.setState({ isExpanded: false, fileFilterText: '' })
+    }
+  }
+
+  private getFilteredFiles() {
+    return this.filterFiles(
+      this.props.changesetData.files,
+      this.state.fileFilterText
+    )
+  }
+
+  private onFileFilterChanged = (fileFilterText: string) => {
+    this.setState({ fileFilterText })
+    const files = this.filterFiles(
+      this.props.changesetData.files,
+      fileFilterText
+    )
+    if (
+      files.length > 0 &&
+      !files.some(file => file.path === this.props.selectedFile?.path)
+    ) {
+      this.onFileSelected(files[0])
     }
   }
 
@@ -152,7 +181,12 @@ export class SelectedCommits extends React.Component<
     const file = this.props.selectedFile
     const diff = this.props.currentDiff
 
-    if (file == null) {
+    if (
+      file == null ||
+      !this.getFilteredFiles().some(
+        visibleFile => visibleFile.path === file.path
+      )
+    ) {
       // don't show both 'empty' messages
       const message =
         this.props.changesetData.files.length === 0 ? '' : 'No file selected'
@@ -327,28 +361,45 @@ export class SelectedCommits extends React.Component<
 
     // -1 for right hand side border
     const availableWidth = clamp(this.props.commitSummaryWidth) - 1
+    const filteredFiles = this.getFilteredFiles()
 
     return (
       <>
-        {this.renderFileHeader()}
-        <FileList
-          files={files}
-          onSelectedFileChanged={this.onFileSelected}
-          selectedFile={this.props.selectedFile}
-          availableWidth={availableWidth}
-          onBlame={this.onBlameFile}
-          onContextMenu={this.onContextMenu}
-          onRowDoubleClick={this.onRowDoubleClick}
-        />
+        {this.renderFileHeader(filteredFiles.length)}
+        <div className="commit-file-filter">
+          <TextBox
+            type="search"
+            ariaLabel="Filter files by name or path"
+            placeholder="Filter files by name or path"
+            prefixedIcon={octicons.search}
+            displayClearButton={true}
+            value={this.state.fileFilterText}
+            onValueChanged={this.onFileFilterChanged}
+          />
+        </div>
+        {filteredFiles.length === 0 ? (
+          <div className="fill-window">No matching files</div>
+        ) : (
+          <FileList
+            files={filteredFiles}
+            onSelectedFileChanged={this.onFileSelected}
+            selectedFile={this.props.selectedFile}
+            availableWidth={availableWidth}
+            onBlame={this.onBlameFile}
+            onContextMenu={this.onContextMenu}
+            onRowDoubleClick={this.onRowDoubleClick}
+          />
+        )}
       </>
     )
   }
 
-  private renderFileHeader() {
+  private renderFileHeader(filteredCount: number) {
     const fileCount = this.props.changesetData.files.length
     const filesPlural = fileCount === 1 ? 'file' : 'files'
     return (
-      <div className="file-list-header">
+      <div className="file-list-header" role="status">
+        {this.state.fileFilterText.trim().length > 0 && `${filteredCount} of `}
         {fileCount} changed {filesPlural}
       </div>
     )

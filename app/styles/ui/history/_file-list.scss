@@ -1,4 +1,15 @@
 #history {
+  .commit-file-filter {
+    flex: 0 0 auto;
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: var(--base-border);
+    border-right: var(--base-border);
+
+    input::-webkit-search-cancel-button {
+      display: none;
+    }
+  }
+
   .file-list {
     display: flex;
     flex: 1;
